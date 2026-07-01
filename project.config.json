@@ -1,0 +1,49 @@
+{
+  "miniprogramRoot": "miniprogram/",
+  "cloudfunctionRoot": "cloudfunctions/",
+  "projectname": "qi_wechat",
+  "description": "祺臻心理 - 多社区心理咨询前台微信小程序 (云开发版)",
+  "appid": "wx06d5e464bb5a2f41",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true,
+    "showShadow": true,
+    "useApiHook": true,
+    "babelSetting": {
+      "ignore": [],
+      "disableApis": [],
+      "outputPath": "",
+      "disablePlugins": []
+    },
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.4.0",
+  "condition": {},
+  "cloudbaseRoot": "cloudfunctions/",
+  "editor_setting": {
+    "tabIndent": "insertSpaces",
+    "tabSize": 2
+  },
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
+}

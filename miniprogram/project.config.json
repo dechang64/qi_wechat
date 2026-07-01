@@ -1,0 +1,49 @@
+{
+  "miniprogramRoot": "./",
+  "projectname": "qi_wechat",
+  "description": "祺臻心理 - 多社区心理咨询前台微信小程序",
+  "appid": "wx06d5e464bb5a2f41",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "precompileBackground": false,
+    "minified": true,
+    "newFeature": true,
+    "uglifyFileName": false,
+    "showShadow": true,
+    "useApiHook": true,
+    "useApiHostProcess": true,
+    "babelSetting": {
+      "ignore": [],
+      "disableApis": [],
+      "outputPath": "",
+      "disablePlugins": []
+    },
+    "enableEngineNative": false,
+    "useIsolateContext": true,
+    "userConfirmedBundleSwitch": false,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "compileWorklet": false,
+    "uploadWithSourceMap": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.4.0",
+  "condition": {},
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
+}

@@ -1,0 +1,60 @@
+<!-- pages/crisis/crisis.wxml -->
+<view class="container">
+
+  <view class="crisis-hero">
+    <view style="font-size:80rpx;">🚨</view>
+    <view class="title-h1" style="color:#dc3545;">紧急 / 危机</view>
+    <view class="text-muted" style="text-align:center;margin:16rpx 0;">
+      我们很关心你的安全.<br/>
+      请拨打下方 24h 热线. 你不是一个人.
+    </view>
+  </view>
+
+  <!-- 24h 热线 -->
+  <view class="card">
+    <view class="title-h2">📞 24h 心理援助热线</view>
+    <view class="hotline-list">
+      <view
+        wx:for="{{hotlines}}"
+        wx:key="name"
+        class="hotline {{item.color === '#dc3545' ? 'hotline-urgent' : ''}}"
+        bindtap="callPhone"
+        data-phone="{{item.phone}}"
+      >
+        <view style="display:flex;justify-content:space-between;align-items:center;">
+          <view>
+            <view style="font-size:40rpx;font-weight:700;">{{item.name}}</view>
+            <view class="text-muted" style="margin-top:6rpx;">{{item.desc}}</view>
+          </view>
+          <view style="font-size:60rpx;">📞</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 跳预约 -->
+  <view class="card" style="text-align:center;">
+    <view style="font-size:48rpx;">📅</view>
+    <view class="title-h2">希望尽快见咨询师?</view>
+    <view class="text-muted" style="margin:16rpx 0;">
+      紧急情况可点下方, 我们会优先安排.
+    </view>
+    <button class="btn-primary" bindtap="goBooking">立即预约紧急咨询</button>
+  </view>
+
+  <!-- mock 测试 -->
+  <view class="card" style="background:#fff8e8;">
+    <view style="font-size:24rpx;color:#8b7355;">🧪 测试关键词检测 (开发用)</view>
+    <input class="test-input" placeholder="输入文本..." value="{{testInput}}" bindinput="onTestInput" />
+    <button class="btn-secondary" bindtap="testDetect" style="margin-top:16rpx;">检测</button>
+    <block wx:if="{{testResult.is_crisis}}">
+      <view style="margin-top:16rpx;color:#dc3545;font-size:24rpx;">
+        ⚠️ 命中: {{testResult.keywords.length}} 个关键词 (置信度 {{testResult.confidence}})
+      </view>
+    </block>
+    <block wx:elif="{{testResult.is_crisis === false}}">
+      <view style="margin-top:16rpx;color:#9bbf65;font-size:24rpx;">✅ 未检测到危机关键词</view>
+    </block>
+  </view>
+
+</view>

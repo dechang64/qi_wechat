@@ -1,0 +1,10 @@
+{
+  "name": "communities",
+  "version": "1.0.0",
+  "description": "列社区 (5 个 mock)",
+  "main": "index.js",
+  "dependencies": {},
+  "engines": {
+    "node": "18"
+  }
+}

@@ -1,0 +1,59 @@
+<!-- pages/chat/chat.wxml -->
+<view class="container">
+
+  <view class="title-h1">💬 倾诉</view>
+  <view class="text-muted" style="margin-bottom: 24rpx;">
+    你可以和我聊聊, 我会倾听, 不评判, 不标签.
+  </view>
+
+  <!-- 角色选择 -->
+  <scroll-view class="role-row" scroll-x="true" enable-flex="true">
+    <view
+      wx:for="{{roles}}"
+      wx:key="key"
+      class="role-chip {{currentRole === item.key ? 'role-active' : ''}}"
+      data-role="{{item.key}}"
+      bindtap="switchRole"
+    >
+      <text class="role-icon">{{item.icon}}</text>
+      <text class="role-name">{{item.name}}</text>
+    </view>
+    <view class="role-chip role-clear" bindtap="clearHistory">
+      <text class="role-icon">🧹</text>
+      <text class="role-name">清空</text>
+    </view>
+  </scroll-view>
+
+  <!-- 历史对话 -->
+  <scroll-view class="messages" scroll-y="true" scroll-into-view="{{scrollTo}}" scroll-with-animation="true" enhanced="true" show-scrollbar="{{false}}">
+    <block wx:for="{{messages}}" wx:key="id">
+      <view class="msg msg-{{item.role}}" id="msg-{{item.id}}">
+        <view wx:if="{{item.role === 'bot' && item.role_used}}" class="msg-role-tag">
+          {{item.role_used === 'narrative' ? '📖 叙事' : item.role_used === 'cbt' ? '🧠 CBT' : item.role_used === 'person_centered' ? '🤝 人本' : item.role_used === 'act' ? '🌊 ACT' : item.role_used === 'positive' ? '🌻 积极' : '⚡ 焦点'}}
+        </view>
+        <view class="msg-content">
+          <text>{{item.content}}<text wx:if="{{item.typing}}" class="typing-cursor">▌</text></text>
+        </view>
+      </view>
+    </block>
+  </scroll-view>
+
+  <!-- 输入 -->
+  <view class="input-bar">
+    <input
+      class="input"
+      placeholder="说点什么..."
+      value="{{input}}"
+      bindinput="onInput"
+      bindconfirm="send"
+      confirm-type="send"
+      disabled="{{sending}}"
+    />
+    <button class="btn-send" bindtap="send" loading="{{sending}}" disabled="{{sending}}">发送</button>
+  </view>
+
+  <view class="text-muted" style="text-align:center; margin: 16rpx 0; font-size: 22rpx;">
+    v2.0 · deepseek-v3 + 6 角色 + 上下文
+  </view>
+
+</view>

@@ -1,0 +1,60 @@
+<!-- pages/assessment/assessment.wxml -->
+<view class="container">
+
+  <!-- 进度 -->
+  <view class="progress">
+    <text class="text-muted">第 {{current + 1}} / 5 题</text>
+    <view class="progress-bar">
+      <view class="progress-fill" style="width: {{progress}}%"></view>
+    </view>
+  </view>
+
+  <!-- 单题 -->
+  <block wx:if="{{!submitted}}">
+    <view class="card question">
+      <view class="question-text">{{questions[current].text}}</view>
+      <view class="options">
+        <view
+          wx:for="{{questions[current].options}}"
+          wx:key="v"
+          class="option {{answers[questions[current].id] === item.v ? 'option-selected' : ''}}"
+          bindtap="selectOption"
+          data-v="{{item.v}}"
+        >
+          <text>{{item.t}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="nav-buttons">
+      <button class="btn-secondary" bindtap="prev" disabled="{{current === 0}}">上一题</button>
+      <button class="btn-primary" bindtap="next" disabled="{{answers[questions[current].id] === undefined}}">
+        {{current === 4 ? '提交' : '下一题'}}
+      </button>
+    </view>
+  </block>
+
+  <!-- 结果 -->
+  <block wx:else>
+    <view class="card result">
+      <view class="result-title">{{result.advice.title}}</view>
+      <view class="result-score">得分: {{result.score}} / 15</view>
+      <view class="result-level tag {{result.advice.level === 'urgent' ? 'tag-danger' : (result.advice.level === 'high' ? 'tag-warning' : 'tag-success')}}">
+        {{result.advice.level}}
+      </view>
+      <view class="result-recos">
+        <block wx:for="{{result.advice.recommendations}}" wx:key="*this">
+          <view class="reco-item">• {{item}}</view>
+        </block>
+      </view>
+
+      <block wx:if="{{result.advice.immediate}}">
+        <button class="btn-primary" bindtap="goCrisis" style="background: #dc3545; margin-top: 32rpx;">
+          🚨 立即寻求帮助
+        </button>
+      </block>
+      <button class="btn-secondary" bindtap="restart" style="margin-top: 24rpx;">重新测评</button>
+    </view>
+  </block>
+
+</view>

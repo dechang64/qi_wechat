@@ -1,0 +1,130 @@
+<!-- pages/booking/booking.wxml -->
+<view class="container">
+
+  <view class="title-h1">📅 预约</view>
+  <view class="text-muted" style="margin-bottom: 32rpx;">
+    选社区 → 选老师 → 选时段 → 留手机号 → 完成
+  </view>
+
+  <!-- Step 1: 选社区 -->
+  <block wx:if="{{step === 1}}">
+    <view class="card">
+      <view class="title-h2">第一步 · 选社区</view>
+      <view class="community-list">
+        <view
+          wx:for="{{communities}}"
+          wx:key="id"
+          class="option {{selectedCommunity === item.id ? 'option-selected' : ''}}"
+          bindtap="selectCommunity"
+          data-id="{{item.id}}"
+        >
+          <text style="font-weight:600;">{{item.name}}</text>
+          <text class="text-muted"> · {{item.address}}</text>
+        </view>
+        <view class="option" bindtap="goCrossCommunity">
+          <text style="font-weight:600;">🌐 跨社区 / 全网络咨询师池</text>
+          <text class="text-muted"> · 不限本社区</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- Step 2: 选老师 -->
+  <block wx:if="{{step === 2}}">
+    <view class="card">
+      <view class="title-h2">第二步 · 选老师</view>
+      <view class="filter">
+        <view class="filter-chip {{!specialty ? 'chip-active' : ''}}" bindtap="filterBy" data-s="">全部</view>
+        <view class="filter-chip {{specialty === '焦虑' ? 'chip-active' : ''}}" bindtap="filterBy" data-s="焦虑">焦虑</view>
+        <view class="filter-chip {{specialty === '青少年' ? 'chip-active' : ''}}" bindtap="filterBy" data-s="青少年">青少年</view>
+        <view class="filter-chip {{specialty === '情绪' ? 'chip-active' : ''}}" bindtap="filterBy" data-s="情绪">情绪</view>
+      </view>
+      <view class="counselor-list">
+        <view
+          wx:for="{{counselors}}"
+          wx:key="id"
+          class="card counselor {{selectedCounselor === item.id ? 'counselor-selected' : ''}}"
+          bindtap="selectCounselor"
+          data-id="{{item.id}}"
+        >
+          <view style="display:flex;justify-content:space-between;align-items:center;">
+            <view>
+              <view style="font-size:32rpx;font-weight:600;">{{item.name}}</view>
+              <view class="text-muted" style="font-size:24rpx;">{{item.title}} · {{item.community_id}}</view>
+            </view>
+            <view wx:if="{{selectedCounselor === item.id}}" class="tag tag-success">✓ 已选</view>
+          </view>
+          <view style="margin-top:12rpx;">
+            <block wx:for="{{item.specialties}}" wx:key="*this" wx:for-item="s">
+              <text class="tag">{{s}}</text>
+            </block>
+          </view>
+          <view class="text-muted" style="font-size:24rpx;margin-top:12rpx;">{{item.bio}}</view>
+        </view>
+      </view>
+      <button class="btn-secondary" bindtap="back" style="margin-top:24rpx;">← 返回选社区</button>
+    </view>
+  </block>
+
+  <!-- Step 3: 选时段 -->
+  <block wx:if="{{step === 3}}">
+    <view class="card">
+      <view class="title-h2">第三步 · 选时段</view>
+      <view class="text-muted" style="margin-bottom:24rpx;">{{selectedCounselorName}} · {{selectedDate}}</view>
+      <view class="slot-grid">
+        <view
+          wx:for="{{slots}}"
+          wx:key="*this"
+          class="slot {{selectedTime === item ? 'slot-selected' : ''}}"
+          bindtap="selectTime"
+          data-t="{{item}}"
+        >{{item}}</view>
+      </view>
+      <view class="mode-select">
+        <view class="mode-label">咨询方式:</view>
+        <view class="option {{mode === 'onsite' ? 'option-selected' : ''}}" bindtap="selectMode" data-m="onsite">📍 现场</view>
+        <view class="option {{mode === 'video' ? 'option-selected' : ''}}" bindtap="selectMode" data-m="video">📹 视频</view>
+      </view>
+      <button class="btn-secondary" bindtap="back" style="margin-top:24rpx;">← 返回选老师</button>
+    </view>
+  </block>
+
+  <!-- Step 4: 留手机号 -->
+  <block wx:if="{{step === 4}}">
+    <view class="card">
+      <view class="title-h2">第四步 · 留下手机号</view>
+      <view class="text-muted">用于咨询师联系您. 不会用于其他用途.</view>
+      <input
+        class="phone-input"
+        type="number"
+        maxlength="11"
+        placeholder="11位手机号"
+        value="{{phone}}"
+        bindinput="onPhone"
+      />
+      <button class="btn-primary" bindtap="confirm" disabled="{{phone.length !== 11}}" style="margin-top:24rpx;">
+        ✓ 确认预约
+      </button>
+      <button class="btn-secondary" bindtap="back" style="margin-top:16rpx;">← 返回选时段</button>
+    </view>
+  </block>
+
+  <!-- Step 5: 完成 -->
+  <block wx:if="{{step === 5}}">
+    <view class="card" style="text-align:center;">
+      <view style="font-size:80rpx;">✅</view>
+      <view class="title-h2">预约成功</view>
+      <view class="text-muted" style="margin: 24rpx 0;">
+        咨询师会通过短信 / 微信联系您确认
+      </view>
+      <view class="card-dark" style="margin: 24rpx 0; text-align:left;">
+        <view>📋 {{bookingResult.community_id}} · {{bookingResult.counselor_id}}老师</view>
+        <view>🕐 {{bookingResult.booking_time}}</view>
+        <view>📍 {{bookingResult.mode === 'onsite' ? '现场咨询' : '视频咨询'}}</view>
+      </view>
+      <button class="btn-primary" bindtap="goHome">回到首页</button>
+      <button class="btn-secondary" bindtap="restart" style="margin-top:16rpx;">再约一次</button>
+    </view>
+  </block>
+
+</view>

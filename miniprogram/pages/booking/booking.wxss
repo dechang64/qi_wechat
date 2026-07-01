@@ -1,0 +1,106 @@
+/* pages/booking/booking.wxss */
+.community-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.option {
+  padding: 24rpx;
+  background: #ffffff;
+  border: 2rpx solid #d4c5a9;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+}
+
+.option-selected {
+  background: #1F3A5F;
+  color: #ffffff;
+  border-color: #1F3A5F;
+}
+
+.filter {
+  display: flex;
+  gap: 12rpx;
+  flex-wrap: wrap;
+  margin-bottom: 24rpx;
+}
+
+.filter-chip {
+  padding: 8rpx 20rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  background: #f0e8d8;
+  color: #1a1a1a;
+}
+
+.chip-active {
+  background: #1F3A5F;
+  color: #ffffff;
+}
+
+.counselor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.counselor {
+  border: 2rpx solid #d4c5a9;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.counselor-selected {
+  border-color: #1F3A5F;
+  background: #f0f8ff;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.slot {
+  padding: 24rpx 0;
+  text-align: center;
+  background: #ffffff;
+  border: 2rpx solid #d4c5a9;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+}
+
+.slot-selected {
+  background: #1F3A5F;
+  color: #ffffff;
+  border-color: #1F3A5F;
+}
+
+.mode-select {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 24rpx;
+}
+
+.mode-label {
+  font-size: 28rpx;
+  color: #8b7355;
+}
+
+.mode-select .option {
+  flex: 1;
+  text-align: center;
+}
+
+.phone-input {
+  width: 100%;
+  padding: 24rpx;
+  background: #ffffff;
+  border: 2rpx solid #d4c5a9;
+  border-radius: 16rpx;
+  font-size: 32rpx;
+  margin-top: 16rpx;
+}

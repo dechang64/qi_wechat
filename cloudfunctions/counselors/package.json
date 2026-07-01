@@ -1,0 +1,8 @@
+{
+  "name": "counselors",
+  "version": "1.0.0",
+  "description": "查询咨询师池 (跨社区)",
+  "main": "index.js",
+  "dependencies": {},
+  "engines": { "node": "18" }
+}

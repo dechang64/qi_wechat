@@ -1,0 +1,10 @@
+{
+  "name": "assessment",
+  "version": "1.0.0",
+  "description": "5 题心理评估",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  },
+  "engines": { "node": "18" }
+}

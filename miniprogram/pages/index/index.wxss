@@ -1,0 +1,15 @@
+/* pages/index/index.wxss */
+.container {
+  min-height: 100vh;
+  background: #f5f0e8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading {
+  font-size: 32rpx;
+  color: #1F3A5F;
+  letter-spacing: 4rpx;
+  font-weight: 300;
+}

@@ -1,0 +1,4 @@
+<!--pages/index/index.wxml-->
+<view class="container">
+  <view class="loading">祺心相伴 · 臻于至善</view>
+</view>

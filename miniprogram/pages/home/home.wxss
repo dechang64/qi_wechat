@@ -1,0 +1,127 @@
+/* pages/home/home.wxss */
+.hero {
+  padding: 60rpx 32rpx;
+  text-align: center;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f0e8 100%);
+  border-radius: 0 0 48rpx 48rpx;
+}
+
+.hero-logo {
+  font-size: 80rpx;
+  margin-bottom: 16rpx;
+}
+
+.hero-title {
+  font-size: 56rpx;
+  font-weight: 700;
+  color: #1F3A5F;
+  letter-spacing: 4rpx;
+}
+
+.hero-sub {
+  font-size: 28rpx;
+  color: #8b7355;
+  margin: 12rpx 0;
+}
+
+.hero-motto {
+  font-size: 24rpx;
+  color: #1F3A5F;
+  font-style: italic;
+  margin-top: 16rpx;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  padding: 32rpx 0;
+  border-bottom: 2rpx solid #f0e8d8;
+}
+
+.entry:last-child {
+  border-bottom: none;
+}
+
+.entry-icon {
+  font-size: 56rpx;
+  margin-right: 24rpx;
+  width: 80rpx;
+  text-align: center;
+}
+
+.entry-content {
+  flex: 1;
+}
+
+.entry-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.entry-sub {
+  font-size: 24rpx;
+  color: #8b7355;
+  margin-top: 6rpx;
+}
+
+.entry-arrow {
+  font-size: 40rpx;
+  color: #8b7355;
+}
+
+.entry-danger .entry-title {
+  color: #dc3545;
+}
+
+.tip-card {
+  margin: 32rpx 32rpx;
+  padding: 32rpx;
+  background: linear-gradient(135deg, #fef9e7 0%, #f5f0e8 100%);
+  border-left: 8rpx solid #d4a64a;
+  border-radius: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(212, 166, 74, 0.1);
+}
+
+.tip-label {
+  font-size: 24rpx;
+  color: #8b7355;
+  letter-spacing: 2rpx;
+  margin-bottom: 12rpx;
+}
+
+.tip-text {
+  font-size: 28rpx;
+  line-height: 1.7;
+  color: #1F3A5F;
+  font-weight: 500;
+}
+
+.community-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.community-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 24rpx 16rpx;
+  border-bottom: 2rpx solid #f0e8d8;
+  font-size: 28rpx;
+}
+
+.community-item:last-child {
+  border-bottom: none;
+}
+
+.community-item.selected {
+  background: #1F3A5F;
+  color: #ffffff;
+  border-radius: 16rpx;
+  border-bottom: 2rpx solid #1F3A5F;
+}
+
+.community-item .muted {
+  color: #8b7355;
+  font-size: 22rpx;
+}

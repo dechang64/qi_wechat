@@ -1,0 +1,99 @@
+/* app.wxss — 全局样式 */
+page {
+  background: #f5f0e8;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+  color: #1a1a1a;
+}
+
+.container {
+  padding: 0 32rpx;
+  box-sizing: border-box;
+}
+
+.btn-primary {
+  background: #1F3A5F;
+  color: #ffffff;
+  border-radius: 999rpx;
+  padding: 24rpx 0;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 600;
+  margin: 24rpx 0;
+}
+
+.btn-secondary {
+  background: #f5f0e8;
+  color: #1F3A5F;
+  border: 2rpx solid #1F3A5F;
+  border-radius: 999rpx;
+  padding: 22rpx 0;
+  text-align: center;
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  margin: 24rpx 0;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.06);
+}
+
+.card-dark {
+  background: #1F3A5F;
+  color: #ffffff;
+  border-radius: 24rpx;
+  padding: 32rpx;
+  margin: 24rpx 0;
+}
+
+.title-h1 {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #1F3A5F;
+  margin: 32rpx 0;
+}
+
+.title-h2 {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1F3A5F;
+  margin: 24rpx 0;
+}
+
+.text-muted {
+  color: #8b7355;
+  font-size: 24rpx;
+}
+
+.divider {
+  height: 2rpx;
+  background: #d4c5a9;
+  margin: 24rpx 0;
+}
+
+.tag {
+  display: inline-block;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  background: #d4c5a9;
+  color: #1F3A5F;
+  margin-right: 12rpx;
+}
+
+.tag-danger {
+  background: #dc3545;
+  color: #ffffff;
+}
+
+.tag-warning {
+  background: #d4a574;
+  color: #ffffff;
+}
+
+.tag-success {
+  background: #9bbf65;
+  color: #ffffff;
+}

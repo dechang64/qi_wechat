@@ -1,0 +1,41 @@
+/* pages/crisis/crisis.wxss */
+.crisis-hero {
+  text-align: center;
+  padding: 60rpx 32rpx 32rpx;
+}
+
+.hotline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  margin-top: 24rpx;
+}
+
+.hotline {
+  padding: 32rpx;
+  background: #ffffff;
+  border: 4rpx solid #d4a574;
+  border-radius: 24rpx;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.hotline-urgent {
+  border-color: #dc3545;
+  background: #fef5f5;
+}
+
+.hotline:active {
+  transform: scale(0.98);
+  background: #fff8e8;
+}
+
+.test-input {
+  width: 100%;
+  padding: 16rpx;
+  margin-top: 12rpx;
+  background: #ffffff;
+  border: 2rpx solid #d4c5a9;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+}

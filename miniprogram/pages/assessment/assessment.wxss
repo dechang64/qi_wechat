@@ -1,0 +1,88 @@
+/* pages/assessment/assessment.wxss */
+.progress {
+  margin: 32rpx 0;
+}
+
+.progress-bar {
+  height: 8rpx;
+  background: #f0e8d8;
+  border-radius: 4rpx;
+  margin-top: 16rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #1F3A5F;
+  transition: width 0.3s ease;
+}
+
+.question-text {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 32rpx;
+  line-height: 1.5;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.option {
+  padding: 24rpx;
+  background: #ffffff;
+  border: 2rpx solid #d4c5a9;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+}
+
+.option-selected {
+  background: #1F3A5F;
+  color: #ffffff;
+  border-color: #1F3A5F;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 24rpx;
+  margin-top: 48rpx;
+}
+
+.nav-buttons button {
+  flex: 1;
+  margin: 0;
+}
+
+.result-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1F3A5F;
+  margin-bottom: 16rpx;
+}
+
+.result-score {
+  font-size: 32rpx;
+  color: #8b7355;
+  margin-bottom: 16rpx;
+}
+
+.result-level {
+  display: inline-block;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  margin: 16rpx 0;
+}
+
+.result-recos {
+  margin-top: 24rpx;
+}
+
+.reco-item {
+  font-size: 28rpx;
+  color: #1a1a1a;
+  line-height: 1.7;
+}

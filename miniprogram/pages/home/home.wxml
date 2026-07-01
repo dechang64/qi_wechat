@@ -1,0 +1,78 @@
+<!-- pages/home/home.wxml -->
+<view class="container">
+
+  <!-- Hero -->
+  <view class="hero">
+    <view class="hero-logo">💎</view>
+    <view class="hero-title">祺臻心理</view>
+    <view class="hero-sub">在这里，你可以放下所有防备</view>
+    <view class="hero-motto">"祺心相伴，臻于至善。"</view>
+  </view>
+
+  <!-- 今日一笺 (Phase 2) -->
+  <view class="tip-card" wx:if="{{dailyTip}}">
+    <view class="tip-label">✨ 今日一笺</view>
+    <view class="tip-text">{{dailyTip}}</view>
+  </view>
+
+  <!-- 4 个主入口 -->
+  <view class="card">
+    <view class="entry" bindtap="goChat">
+      <view class="entry-icon">💬</view>
+      <view class="entry-content">
+        <view class="entry-title">找咨询师聊聊</view>
+        <view class="entry-sub">随时倾诉, 匿名可</view>
+      </view>
+      <view class="entry-arrow">›</view>
+    </view>
+
+    <view class="entry" bindtap="goAssessment">
+      <view class="entry-icon">📋</view>
+      <view class="entry-content">
+        <view class="entry-title">5 分钟心理测评</view>
+        <view class="entry-sub">看看自己近况如何</view>
+      </view>
+      <view class="entry-arrow">›</view>
+    </view>
+
+    <view class="entry" bindtap="goBooking">
+      <view class="entry-icon">📅</view>
+      <view class="entry-content">
+        <view class="entry-title">预约面对面咨询</view>
+        <view class="entry-sub">可选跨社区老师</view>
+      </view>
+      <view class="entry-arrow">›</view>
+    </view>
+
+    <view class="entry entry-danger" bindtap="goCrisis">
+      <view class="entry-icon">🚨</view>
+      <view class="entry-content">
+        <view class="entry-title">紧急 / 危机</view>
+        <view class="entry-sub">24h 心理热线</view>
+      </view>
+      <view class="entry-arrow">›</view>
+    </view>
+  </view>
+
+  <!-- 选社区 (跨社区预约基础) -->
+  <view class="card">
+    <view class="title-h2">📍 您的社区</view>
+    <view class="community-list">
+      <view
+        wx:for="{{communities}}"
+        wx:key="id"
+        class="community-item {{item.id === selected_community ? 'selected' : ''}}"
+        bindtap="selectCommunity"
+        data-id="{{item.id}}"
+      >
+        <text>{{item.name}}</text>
+        <text class="muted">{{item.address}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="text-muted" style="text-align:center; margin: 40rpx 0;">
+    v0.1 demo · 复用 dgy-treehole v6.4
+  </view>
+
+</view>

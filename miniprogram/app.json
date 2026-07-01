@@ -1,0 +1,33 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/home/home",
+    "pages/chat/chat",
+    "pages/assessment/assessment",
+    "pages/booking/booking",
+    "pages/crisis/crisis"
+  ],
+  "cloud": true,
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#1F3A5F",
+    "navigationBarTitleText": "祺臻心理",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f5f0e8"
+  },
+  "tabBar": {
+    "color": "#8b7355",
+    "selectedColor": "#1F3A5F",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {"pagePath": "pages/home/home", "text": "首页", "iconPath": "images/tab_0_unselected.png", "selectedIconPath": "images/tab_0_selected.png"},
+      {"pagePath": "pages/chat/chat", "text": "倾诉", "iconPath": "images/tab_1_unselected.png", "selectedIconPath": "images/tab_1_selected.png"},
+      {"pagePath": "pages/assessment/assessment", "text": "测评", "iconPath": "images/tab_2_unselected.png", "selectedIconPath": "images/tab_2_selected.png"},
+      {"pagePath": "pages/booking/booking", "text": "预约", "iconPath": "images/tab_3_unselected.png", "selectedIconPath": "images/tab_3_selected.png"},
+      {"pagePath": "pages/crisis/crisis", "text": "紧急", "iconPath": "images/tab_4_unselected.png", "selectedIconPath": "images/tab_4_selected.png"}
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

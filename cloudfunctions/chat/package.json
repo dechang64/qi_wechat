@@ -1,0 +1,10 @@
+{
+  "name": "chat",
+  "version": "2.0.0",
+  "description": "AI 倾诉对话 v2.0 - deepseek-v3 + 6 角色 + 危机 + 上下文",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  },
+  "engines": { "node": "18" }
+}
