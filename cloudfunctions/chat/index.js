@@ -205,93 +205,66 @@ async function callLLM(system, history) {
     ...history,
   ];
 
-  // 真实 SDK 真相 (v5.7, 完整证据链):
-  //   ai.createModel('hunyuan') 走 MODELS['hunyuan'] → HunYuanSimpleModel
-  //   HunYuanSimpleModel.doGenerate 用 TC3 协议 (X-Tc-Action: ChatCompletions)
-  //     URL = baseUrl + '/' + subUrl (subUrl 默 'hunyuan') → ${baseUrl}/hunyuan
-  //     这是腾讯云混元原生 API (需要 TC3 签名), 跟 wx.cloud 不通!
-  //   ai.createModel('cloudbase') 不在 MODELS map → 走 DefaultSimpleModel 分支
-  //     URL = aiBaseUrl + '/' + ('cloudbase' + options.defaultModelSubUrl)
-  //     options.defaultModelSubUrl 默 '/chat/completions' → URL = ${aiBaseUrl}/cloudbase/chat/completions
-  //     DefaultSimpleModel.doGenerate 不加 X-Tc-Action header → 这是 wx.cloud 的 OpenAI 兼容调用!
-  //     model = 'hy3-preview' (微信文档示例, 真实存在)
-  //   因此: provider 必须 'cloudbase', 走 DefaultSimpleModel + OpenAI 兼容
+  // v5.8 真相 (基于本地真 SDK 测试 + source 验证):
   //
-  // 来源:
-  //   dist/cjs/AI.js L153 (aiBaseUrl = baseUrl + '/ai')
-  //   dist/cjs/AI.js L192-204 (createModel DefaultSimpleModel 分支)
-  //   dist/cjs/models/Default/index.js L59-82 (DefaultSimpleModel.doGenerate)
-  //   dist/cjs/models/HunYuan/index.js L69-90 (TC3 协议)
-  //   微信官方文档 https://developers.weixin.qq.com/... model: "hy3-preview"
+  // 1. ai.aiBaseUrl 真实值 (本地真测):
+  //    https://qi-wechat-dev-d7gxd20xreb567ce2.api.tcloudbasegateway.com/v1/ai
+  //    来源: dist/ai/index.js L42-48 (buildCommonOpenApiUrlWithPath)
   //
-  // v5.7 直接用 ai.modelRequest({url: aiBaseUrl + '/cloudbase/chat/completions'})
-  // 跳过 createModel 包装, 避免 ReactModel 多步累积 + 工具调用 overhead.
-  const provider = (process.env.AI_PROVIDER || "cloudbase").toLowerCase();
+  // 2. v5.6 失败原因: ai.createModel('hunyuan') 走 HunYuanSimpleModel + ReactModel
+  //    内部 subUrl='hunyuan', URL = ${aiBaseUrl}/hunyuan, 走 TC3 协议 (X-Tc-Action: ChatCompletions)
+  //    这是腾讯云混元原生 API, 跟 wx.cloud 的 OpenAI 兼容 endpoint 不通
+  //    'hy3-preview' 在此不接受 → 404
+  //
+  // 3. 正确路径: ai.modelRequest({url: aiBaseUrl + '/cloudbase/chat/completions'})
+  //    POST {model, messages, temperature, stream: false}
+  //    来源: dist/ai/request-adapter.js L35-212 (AIRequestAdapter.fetch)
+  //    真测确认: URL = ${aiBaseUrl}/cloudbase/chat/completions, 发请求返 401 (mock key) 不是 404
+  //
+  // 4. ⚠️ 关键! AIRequestAdapter.fetch 返回 (L208-212):
+  //    { data: Promise<JSON>, statusCode, header: responseHeaders }
+  //    - 2xx: 自动 JSON.parse(bodyData) → 包成 Promise.resolve(responseData)
+  //    - 失败: 抛 E({code, message, requestId})
+  //    v5.7.1 漏了 await result.data, 现在修正
+  //
+  // 5. 解析响应 (OpenAI 兼容):
+  //    { id, object, created, model, choices: [{index, message: {role, content}, finish_reason}], usage, note }
+
   const modelName = process.env.AI_MODEL || "hy3-preview";
 
-  console.log(`[callLLM] provider=${provider}, model=${modelName}, messages=${messages.length}`);
+  console.log(`[callLLM] model=${modelName}, messages=${messages.length}`);
 
   const ai = getAi();
-  console.log(`[SDK DIAG] @cloudbase/node-sdk version=${require("@cloudbase/node-sdk/package.json").version}, ai keys=[${Object.keys(ai).join(",")}], ai.aiBaseUrl=${ai.aiBaseUrl || "undefined"}`);
+  console.log(`[SDK DIAG] version=${require("@cloudbase/node-sdk/package.json").version}, aiBaseUrl=${ai.aiBaseUrl}`);
 
-  // OpenAI 兼容调用: POST ${aiBaseUrl}/cloudbase/chat/completions
-  // body: {model, messages, temperature, stream: false}
-  // 返回: {choices: [{message: {content}, finish_reason}], usage, note}
-  const url = (ai.aiBaseUrl || ai.baseUrl + "/ai") + "/cloudbase/chat/completions";
-  console.log(`[CALL] url=${url}, body=${safeStringify({model: modelName, messages: messages.slice(-3), temperature: 0.7, stream: false}).slice(0, 400)}`);
+  // URL: ${aiBaseUrl}/cloudbase/chat/completions (真测验证)
+  const url = ai.aiBaseUrl + "/cloudbase/chat/completions";
+  console.log(`[CALL] url=${url}`);
 
-  let result;
+  let resp;
   try {
-    if (typeof ai.modelRequest === 'function') {
-      result = await ai.modelRequest({
-        url,
-        data: { model: modelName, messages, temperature: 0.7, stream: false },
-        stream: false,
-      });
-    } else {
-      // 兜底: 直接走 fetch (AI.modelRequest 内部其实就是 fetch)
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: modelName, messages, temperature: 0.7, stream: false }),
-      });
-      result = await resp.json();
-    }
+    resp = await ai.modelRequest({
+      url,
+      data: { model: modelName, messages, temperature: 0.7, stream: false },
+      stream: false,
+    });
+    // resp 是 {data: Promise<JSON>, statusCode, header}
+    console.log(`[RESP] keys=[${Object.keys(resp).join(",")}], statusCode=${resp.statusCode}`);
   } catch (e) {
     throw new Error(`AI 调用失败 (url=${url}, model=${modelName}): ${e.message}`);
   }
 
+  // ⚠️ 关键: resp.data 是 Promise<JSON>, 必须 await
+  const result = await resp.data;
   console.log(`[RESULT] keys=[${Object.keys(result || {}).join(",")}], sample=${safeStringify(result).slice(0, 500)}`);
 
-  // 解析 OpenAI 兼容响应 (来自 ai.modelRequest 走 ${aiBaseUrl}/cloudbase/chat/completions)
-  //   响应形态可能是:
-  //   - 直接 JSON: { id, choices: [{message: {content}}], usage, note }
-  //   - 包装: { data: {...JSON...}, header: {...} } (云函数 req.fetch 包装)
-  //   - 流式 raw responseData
+  // 解析 OpenAI 兼容响应
   let text = null;
-  let parsed = result;
-  // 解包装 {data, header}
-  if (parsed && parsed.data && typeof parsed.data === 'object') {
-    parsed = parsed.data;
-  }
-  if (typeof parsed === "string") {
-    text = parsed;
-  } else if (parsed && Array.isArray(parsed.choices) && parsed.choices[0]) {
-    text = parsed.choices[0].message?.content || parsed.choices[0].text;
-  } else if (parsed && parsed.response && parsed.response.choices && parsed.response.choices[0]) {
-    text = parsed.response.choices[0].message?.content || parsed.response.choices[0].text;
-  } else if (parsed && parsed.rawResponse && parsed.rawResponse.Response) {
-    const r = parsed.rawResponse.Response;
-    if (r.Choices && r.Choices[0]) {
-      text = r.Choices[0].Message?.Content || r.Choices[0].Message?.content;
-    }
-  } else if (parsed && parsed.rawResponse && parsed.rawResponse.choices && parsed.rawResponse.choices[0]) {
-    text = parsed.rawResponse.choices[0].message?.content;
-  } else if (parsed && typeof parsed.text === "string") {
-    text = parsed.text;
+  if (result && Array.isArray(result.choices) && result.choices[0]) {
+    text = result.choices[0].message?.content;
   }
   if (text) return text;
-  throw new Error(`无法解析 AI 响应, result 摘要=${safeStringify(result).slice(0, 500)}`);
+  throw new Error(`无法解析 AI 响应: result=${safeStringify(result).slice(0, 500)}`);
 }
 
 function safeStringify(obj) {
