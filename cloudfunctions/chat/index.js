@@ -205,73 +205,71 @@ async function callLLM(system, history) {
     ...history,
   ];
 
-  const provider = (process.env.AI_PROVIDER || "hunyuan").toLowerCase();
+  // 真实 SDK 真相 (v5.7, 完整证据链):
+  //   ai.createModel('hunyuan') 走 MODELS['hunyuan'] → HunYuanSimpleModel
+  //   HunYuanSimpleModel.doGenerate 用 TC3 协议 (X-Tc-Action: ChatCompletions)
+  //     URL = baseUrl + '/' + subUrl (subUrl 默 'hunyuan') → ${baseUrl}/hunyuan
+  //     这是腾讯云混元原生 API (需要 TC3 签名), 跟 wx.cloud 不通!
+  //   ai.createModel('cloudbase') 不在 MODELS map → 走 DefaultSimpleModel 分支
+  //     URL = aiBaseUrl + '/' + ('cloudbase' + options.defaultModelSubUrl)
+  //     options.defaultModelSubUrl 默 '/chat/completions' → URL = ${aiBaseUrl}/cloudbase/chat/completions
+  //     DefaultSimpleModel.doGenerate 不加 X-Tc-Action header → 这是 wx.cloud 的 OpenAI 兼容调用!
+  //     model = 'hy3-preview' (微信文档示例, 真实存在)
+  //   因此: provider 必须 'cloudbase', 走 DefaultSimpleModel + OpenAI 兼容
+  //
+  // 来源:
+  //   dist/cjs/AI.js L153 (aiBaseUrl = baseUrl + '/ai')
+  //   dist/cjs/AI.js L192-204 (createModel DefaultSimpleModel 分支)
+  //   dist/cjs/models/Default/index.js L59-82 (DefaultSimpleModel.doGenerate)
+  //   dist/cjs/models/HunYuan/index.js L69-90 (TC3 协议)
+  //   微信官方文档 https://developers.weixin.qq.com/... model: "hy3-preview"
+  //
+  // v5.7 直接用 ai.modelRequest({url: aiBaseUrl + '/cloudbase/chat/completions'})
+  // 跳过 createModel 包装, 避免 ReactModel 多步累积 + 工具调用 overhead.
+  const provider = (process.env.AI_PROVIDER || "cloudbase").toLowerCase();
   const modelName = process.env.AI_MODEL || "hy3-preview";
 
   console.log(`[callLLM] provider=${provider}, model=${modelName}, messages=${messages.length}`);
 
   const ai = getAi();
+  console.log(`[SDK DIAG] @cloudbase/node-sdk version=${require("@cloudbase/node-sdk/package.json").version}, ai keys=[${Object.keys(ai).join(",")}], ai.aiBaseUrl=${ai.aiBaseUrl || "undefined"}`);
 
-  // 真实方法: ai.createModel(provider).doGenerate({messages, model, temperature})
-  // createModel 返回的 model 实例类型是 ReactModel (abstract)
-  // HunYuan 实现是 HunYuanSimpleModel (在 dist/cjs/models/HunYuan/index.js)
-  let model;
-  try {
-    model = ai.createModel(provider);
-  } catch (e) {
-    throw new Error(`ai.createModel("${provider}") 失败: ${e.message}. @cloudbase/node-sdk 3.18.3 支持的 provider: hunyuan / hunyuan-exp / hunyuan-beta / deepseek / moonshot / ark / dashscope / yi / zhipu / default`);
-  }
-
-  // 诊断 model 实例上的真实方法 (云端 SDK 版本可能不同)
-  let modelProtoMethods = [];
-  try {
-    let proto = Object.getPrototypeOf(model);
-    while (proto && proto !== Object.prototype) {
-      modelProtoMethods = modelProtoMethods.concat(Object.getOwnPropertyNames(proto));
-      proto = Object.getPrototypeOf(proto);
-    }
-  } catch {}
-  console.log(`[MODEL DIAG] provider=${provider}, model.constructor=${model.constructor.name}, methods=[${modelProtoMethods.join(",")}], typeof doGenerate=${typeof model.doGenerate}, typeof doStream=${typeof model.doStream}, typeof chatCompletion=${typeof model.chatCompletion}`);
+  // OpenAI 兼容调用: POST ${aiBaseUrl}/cloudbase/chat/completions
+  // body: {model, messages, temperature, stream: false}
+  // 返回: {choices: [{message: {content}, finish_reason}], usage, note}
+  const url = (ai.aiBaseUrl || ai.baseUrl + "/ai") + "/cloudbase/chat/completions";
+  console.log(`[CALL] url=${url}, body=${safeStringify({model: modelName, messages: messages.slice(-3), temperature: 0.7, stream: false}).slice(0, 400)}`);
 
   let result;
-  // 真实 SDK 真相 (从云端 diag 日志 + ReactModel 类型定义确认):
-  //   ai.createModel('hunyuan') 返 ReactModel (不是 HunYuanSimpleModel, 是 wrapper)
-  //   ReactModel 上的方法: generateText / streamText (没有 doGenerate!)
-  //   generateText(input, options?) -> { text, messages, usage, rawResponses, error? }
-  //   文本: result.text (直接是字符串)
-  const probeMethods = ['generateText', 'streamText', 'doGenerate', 'chatCompletion'];
-  const availableMethods = probeMethods.filter(m => typeof model[m] === 'function');
-  console.log(`[MODEL DIAG] model.availableMethods=[${availableMethods.join(",")}], model.constructor=${model.constructor.name}`);
-
-  if (typeof model.generateText === 'function') {
-    try {
-      result = await model.generateText({
-        messages,
-        model: modelName,
-        temperature: 0.7,
+  try {
+    if (typeof ai.modelRequest === 'function') {
+      result = await ai.modelRequest({
+        url,
+        data: { model: modelName, messages, temperature: 0.7, stream: false },
+        stream: false,
       });
-      console.log(`[generateText] SUCCESS, result keys=[${Object.keys(result || {}).join(",")}], text 前 100 字: ${(result.text || "").slice(0, 100)}`);
-    } catch (e) {
-      throw new Error(`model.generateText({messages, model:"${modelName}"}) 失败: ${e.message}. 检查 modelName 是否在该 provider 支持的列表里`);
+    } else {
+      // 兜底: 直接走 fetch (AI.modelRequest 内部其实就是 fetch)
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: modelName, messages, temperature: 0.7, stream: false }),
+      });
+      result = await resp.json();
     }
-  } else if (typeof model.streamText === 'function') {
-    // 流式 fallback
-    console.log(`[FALLBACK] model.generateText 不存在, 改用 model.streamText`);
-    const stream = await model.streamText({ messages, model: modelName, temperature: 0.7 });
-    let buf = "";
-    for await (const chunk of stream.textStream) buf += chunk;
-    result = { text: buf };
-  } else {
-    throw new Error(`model 上无 generateText / streamText. availableMethods=[${availableMethods.join(",")}]. 需要看 [SDK DIAG] 日志确认 @cloudbase/node-sdk 版本`);
+  } catch (e) {
+    throw new Error(`AI 调用失败 (url=${url}, model=${modelName}): ${e.message}`);
   }
 
-  // 解析返回: ReactModel.generateText 直接返 { text, messages, usage, rawResponses }
-  // 文本: result.text
+  console.log(`[RESULT] keys=[${Object.keys(result || {}).join(",")}], sample=${safeStringify(result).slice(0, 500)}`);
+
+  // 解析 OpenAI 兼容响应 (来自 ai.modelRequest 走 ${aiBaseUrl}/cloudbase/chat/completions)
+  //   { id, object, created, model, choices: [{index, message: {role, content}, finish_reason}], usage: {prompt_tokens, completion_tokens, total_tokens}, note }
   let text = null;
   if (typeof result === "string") {
     text = result;
-  } else if (result && typeof result.text === "string") {
-    text = result.text;
+  } else if (result && Array.isArray(result.choices) && result.choices[0]) {
+    text = result.choices[0].message?.content || result.choices[0].text;
   } else if (result && result.response && result.response.choices && result.response.choices[0]) {
     text = result.response.choices[0].message?.content || result.response.choices[0].text;
   } else if (result && result.rawResponse && result.rawResponse.Response) {
@@ -279,6 +277,8 @@ async function callLLM(system, history) {
     if (r.Choices && r.Choices[0]) {
       text = r.Choices[0].Message?.Content || r.Choices[0].Message?.content;
     }
+  } else if (result && typeof result.text === "string") {
+    text = result.text;
   }
   if (text) return text;
   throw new Error(`无法解析 AI 响应, result 摘要=${safeStringify(result).slice(0, 500)}`);
