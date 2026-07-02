@@ -205,71 +205,87 @@ async function callLLM(system, history) {
     ...history,
   ];
 
-  // v5.8 真相 (基于本地真 SDK 测试 + source 验证):
-  //
-  // 1. ai.aiBaseUrl 真实值 (本地真测):
-  //    https://qi-wechat-dev-d7gxd20xreb567ce2.api.tcloudbasegateway.com/v1/ai
-  //    来源: dist/ai/index.js L42-48 (buildCommonOpenApiUrlWithPath)
-  //
-  // 2. v5.6 失败原因: ai.createModel('hunyuan') 走 HunYuanSimpleModel + ReactModel
-  //    内部 subUrl='hunyuan', URL = ${aiBaseUrl}/hunyuan, 走 TC3 协议 (X-Tc-Action: ChatCompletions)
-  //    这是腾讯云混元原生 API, 跟 wx.cloud 的 OpenAI 兼容 endpoint 不通
-  //    'hy3-preview' 在此不接受 → 404
-  //
-  // 3. 正确路径: ai.modelRequest({url: aiBaseUrl + '/cloudbase/chat/completions'})
-  //    POST {model, messages, temperature, stream: false}
-  //    来源: dist/ai/request-adapter.js L35-212 (AIRequestAdapter.fetch)
-  //    真测确认: URL = ${aiBaseUrl}/cloudbase/chat/completions, 发请求返 401 (mock key) 不是 404
-  //
-  // 4. ⚠️ 关键! AIRequestAdapter.fetch 返回 (L208-212):
-  //    { data: Promise<JSON>, statusCode, header: responseHeaders }
-  //    - 2xx: 自动 JSON.parse(bodyData) → 包成 Promise.resolve(responseData)
-  //    - 失败: 抛 E({code, message, requestId})
-  //    v5.7.1 漏了 await result.data, 现在修正
-  //
-  // 5. 解析响应 (OpenAI 兼容):
-  //    { id, object, created, model, choices: [{index, message: {role, content}, finish_reason}], usage, note }
+  // v6.0 双 provider:
+  //  provider=cloudbase (默认): 走 wx.cloud 内置 AI, 混元 hy3-preview
+  //    依据: dist/ai/request-adapter.js L208-212 + 真测 v5.8.1 已通
+  //  provider=amax: 走 AMAX router, GPT-4o / Claude / DeepSeek
+  //    依据: AMAX 官方王康确认 "云函数可以, 只需 API key + base URL" (2026-07-02 微信群截图)
+  //    调用: fetch(${AI_BASE_URL}/chat/completions, {Authorization: Bearer ${AI_API_KEY}})
+  //    微信云函数支持外部 HTTPS (腾讯云开发文档 + AMAX 官方确认)
+  //  provider=amax-fallback: 先 AMAX, 失败回退 CloudBase
 
-  const modelName = process.env.AI_MODEL || "hy3-preview";
+  const provider = (process.env.AI_PROVIDER || "cloudbase").toLowerCase();
+  const modelName = process.env.AI_MODEL || (provider === "amax" || provider === "amax-fallback" ? "gpt-4o-mini" : "hy3-preview");
 
-  console.log(`[callLLM] model=${modelName}, messages=${messages.length}`);
+  console.log(`[callLLM] provider=${provider}, model=${modelName}, messages=${messages.length}`);
 
-  const ai = getAi();
-  console.log(`[SDK DIAG] version=${require("@cloudbase/node-sdk/package.json").version}, aiBaseUrl=${ai.aiBaseUrl}`);
-
-  // URL: ${aiBaseUrl}/cloudbase/chat/completions (真测验证)
-  const url = ai.aiBaseUrl + "/cloudbase/chat/completions";
-  console.log(`[CALL] url=${url}`);
-
-  let resp;
-  try {
-    resp = await ai.modelRequest({
+  async function callCloudBase() {
+    const ai = getAi();
+    console.log(`[CloudBase SDK] version=${require("@cloudbase/node-sdk/package.json").version}, aiBaseUrl=${ai.aiBaseUrl}`);
+    const url = ai.aiBaseUrl + "/cloudbase/chat/completions";
+    console.log(`[CloudBase CALL] url=${url}, model=${modelName}`);
+    const resp = await ai.modelRequest({
       url,
       data: { model: modelName, messages, temperature: 0.7, stream: false },
       stream: false,
     });
-    // resp 是 {data: Promise<JSON>, statusCode, header}
-    console.log(`[RESP] keys=[${Object.keys(resp).join(",")}], statusCode=${resp.statusCode}`);
+    // resp 可能是 {data: Promise<JSON>, statusCode, header} 或直接 JSON (云函数 wx runtime)
+    let result = (resp && resp.data && typeof resp.data.then === "function") ? await resp.data : resp;
+    console.log(`[CloudBase RESULT] keys=[${Object.keys(result || {}).join(",")}]`);
+    if (result && Array.isArray(result.choices) && result.choices[0]) {
+      return result.choices[0].message?.content;
+    }
+    let sample;
+    try { sample = JSON.stringify(result).slice(0, 300); } catch (e) { sample = "[JSON.stringify 失败: " + e.message + "]"; }
+    throw new Error(`CloudBase 解析失败: ${sample}`);
+  }
+
+  async function callAmax() {
+    const apiKey = process.env.AI_API_KEY;
+    const baseUrl = (process.env.AI_BASE_URL || "https://ai.amaxsmp.com/v1").replace(/\/+$/, "");
+    if (!apiKey) throw new Error("AI_API_KEY 未设置 (provider=amax 需要, 从 AMAX 用户中心拿 sk-xxx)");
+    const url = baseUrl + "/chat/completions";
+    console.log(`[AMAX CALL] url=${url}, model=${modelName}`);
+    // 微信云函数支持外部 HTTPS:
+    // 依据: 腾讯云博客 https://cloud.tencent.com/developer/article/1561898 (云函数发 HTTP/HTTPS 请求)
+    //       AMAX 官方王康 2026-07-02 微信群确认 "云函数可以, 只需 API key + base"
+    // 注意: 走外部 HTTPS 消耗"外网出流量"配额 (4GB 免费), 超限停服, 不像 CloudBase 内部 RPC 免费
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model: modelName, messages, temperature: 0.7, stream: false }),
+    });
+    if (!resp.ok) {
+      const errBody = await resp.text();
+      throw new Error(`AMAX HTTP ${resp.status}: ${errBody.slice(0, 300)}`);
+    }
+    const data = await resp.json();
+    console.log(`[AMAX RESULT] keys=[${Object.keys(data || {}).join(",")}]`);
+    if (data && Array.isArray(data.choices) && data.choices[0]) {
+      return data.choices[0].message?.content;
+    }
+    let sample;
+    try { sample = JSON.stringify(data).slice(0, 300); } catch (e) { sample = "[JSON.stringify 失败: " + e.message + "]"; }
+    throw new Error(`AMAX 解析失败: ${sample}`);
+  }
+
+  try {
+    if (provider === "amax") return await callAmax();
+    if (provider === "amax-fallback") {
+      try { return await callAmax(); }
+      catch (e) {
+        console.log(`[FALLBACK] AMAX 失败: ${e.message}, 降级到 CloudBase`);
+        return await callCloudBase();
+      }
+    }
+    // 默认 cloudbase
+    return await callCloudBase();
   } catch (e) {
-    throw new Error(`AI 调用失败 (url=${url}, model=${modelName}): ${e.message}`);
+    throw new Error(`AI 调用失败 (provider=${provider}, model=${modelName}): ${e.message}`);
   }
-
-  // ⚠️ 关键: resp.data 是 Promise<JSON>, 必须 await
-  // 但云函数 wx runtime 下可能 resp 已经是直接 JSON (无 .data 包装)
-  let result = (resp && resp.data) ? await resp.data : resp;
-  console.log(`[RESULT] typeof=${typeof result}, keys=[${Object.keys(result || {}).join(",")}]`);
-  // 单独打印 sample (避免一行模板字符串解析导致 .slice 报错)
-  let sample;
-  try { sample = JSON.stringify(result).slice(0, 500); } catch (e) { sample = "[JSON.stringify 失败: " + e.message + "]"; }
-  console.log(`[SAMPLE] ${sample}`);
-
-  // 解析 OpenAI 兼容响应
-  let text = null;
-  if (result && Array.isArray(result.choices) && result.choices[0]) {
-    text = result.choices[0].message?.content;
-  }
-  if (text) return text;
-  throw new Error(`无法解析 AI 响应: result=${sample}`);
 }
 
 function safeStringify(obj) {
