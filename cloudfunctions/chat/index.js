@@ -234,48 +234,47 @@ async function callLLM(system, history) {
   console.log(`[MODEL DIAG] provider=${provider}, model.constructor=${model.constructor.name}, methods=[${modelProtoMethods.join(",")}], typeof doGenerate=${typeof model.doGenerate}, typeof doStream=${typeof model.doStream}, typeof chatCompletion=${typeof model.chatCompletion}`);
 
   let result;
-  // 探测: 真实 SDK 版本不同, model 上的方法可能不同. 自动尝试常见方法名.
-  const probeMethods = ['doGenerate', 'doStream', 'chatCompletion', 'generateText', 'textCompletion'];
+  // 真实 SDK 真相 (从云端 diag 日志 + ReactModel 类型定义确认):
+  //   ai.createModel('hunyuan') 返 ReactModel (不是 HunYuanSimpleModel, 是 wrapper)
+  //   ReactModel 上的方法: generateText / streamText (没有 doGenerate!)
+  //   generateText(input, options?) -> { text, messages, usage, rawResponses, error? }
+  //   文本: result.text (直接是字符串)
+  const probeMethods = ['generateText', 'streamText', 'doGenerate', 'chatCompletion'];
   const availableMethods = probeMethods.filter(m => typeof model[m] === 'function');
-  console.log(`[MODEL DIAG] model.availableMethods=[${availableMethods.join(",")}], model.url=${model.url || "no url"}, model.subUrl=${model.subUrl || "no subUrl"}`);
+  console.log(`[MODEL DIAG] model.availableMethods=[${availableMethods.join(",")}], model.constructor=${model.constructor.name}`);
 
-  // 优先 doGenerate, 否则 fallback 到 ai.modelRequest (直接调用, 不通过 model wrapper)
-  if (typeof model.doGenerate === 'function') {
+  if (typeof model.generateText === 'function') {
     try {
-      result = await model.doGenerate({
+      result = await model.generateText({
         messages,
         model: modelName,
         temperature: 0.7,
       });
+      console.log(`[generateText] SUCCESS, result keys=[${Object.keys(result || {}).join(",")}], text 前 100 字: ${(result.text || "").slice(0, 100)}`);
     } catch (e) {
-      throw new Error(`model.doGenerate({messages, model:"${modelName}"}) 失败: ${e.message}. 检查 modelName 是否在该 provider 支持的列表里`);
+      throw new Error(`model.generateText({messages, model:"${modelName}"}) 失败: ${e.message}. 检查 modelName 是否在该 provider 支持的列表里`);
     }
-  } else if (typeof ai.modelRequest === 'function') {
-    // Fallback: 直接调 ai.modelRequest (SDK 真实底层 API, 不依赖 model wrapper)
-    console.log(`[FALLBACK] model.doGenerate 不存在, 改用 ai.modelRequest 直接调用`);
-    try {
-      const url = model.url || `${ai.aiBaseUrl || ai.baseUrl}/hunyuan`;
-      const rawRes = await ai.modelRequest({
-        url,
-        data: { messages, model: modelName, temperature: 0.7, stream: false },
-        stream: false,
-      });
-      // modelRequest 直接返 SDK 响应对象 (已经是 JSON 或 Response 包装), 走 rawResponse 兜底解析
-      result = { rawResponse: rawRes };
-    } catch (e) {
-      throw new Error(`ai.modelRequest 失败: ${e.message}`);
-    }
+  } else if (typeof model.streamText === 'function') {
+    // 流式 fallback
+    console.log(`[FALLBACK] model.generateText 不存在, 改用 model.streamText`);
+    const stream = await model.streamText({ messages, model: modelName, temperature: 0.7 });
+    let buf = "";
+    for await (const chunk of stream.textStream) buf += chunk;
+    result = { text: buf };
   } else {
-    throw new Error(`model 上无 doGenerate 且 ai.modelRequest 也不存在! availableMethods=[${availableMethods.join(",")}]. 需要看 [SDK DIAG] 日志确认 @cloudbase/node-sdk 版本`);
+    throw new Error(`model 上无 generateText / streamText. availableMethods=[${availableMethods.join(",")}]. 需要看 [SDK DIAG] 日志确认 @cloudbase/node-sdk 版本`);
   }
 
-  // 解析返回: 优先 snake_case (doGenerate 已经转过), 兜底 PascalCase
+  // 解析返回: ReactModel.generateText 直接返 { text, messages, usage, rawResponses }
+  // 文本: result.text
   let text = null;
-  if (result && result.response && result.response.choices && result.response.choices[0]) {
+  if (typeof result === "string") {
+    text = result;
+  } else if (result && typeof result.text === "string") {
+    text = result.text;
+  } else if (result && result.response && result.response.choices && result.response.choices[0]) {
     text = result.response.choices[0].message?.content || result.response.choices[0].text;
-  }
-  // 兜底: 腾讯混元原生 PascalCase 字段 (rawResponse.Response.Choices[0].Message.Content)
-  if (!text && result && result.rawResponse && result.rawResponse.Response) {
+  } else if (result && result.rawResponse && result.rawResponse.Response) {
     const r = result.rawResponse.Response;
     if (r.Choices && r.Choices[0]) {
       text = r.Choices[0].Message?.Content || r.Choices[0].Message?.content;
