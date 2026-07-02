@@ -255,8 +255,13 @@ async function callLLM(system, history) {
   }
 
   // ⚠️ 关键: resp.data 是 Promise<JSON>, 必须 await
-  const result = await resp.data;
-  console.log(`[RESULT] keys=[${Object.keys(result || {}).join(",")}], sample=${safeStringify(result).slice(0, 500)}`);
+  // 但云函数 wx runtime 下可能 resp 已经是直接 JSON (无 .data 包装)
+  let result = (resp && resp.data) ? await resp.data : resp;
+  console.log(`[RESULT] typeof=${typeof result}, keys=[${Object.keys(result || {}).join(",")}]`);
+  // 单独打印 sample (避免一行模板字符串解析导致 .slice 报错)
+  let sample;
+  try { sample = JSON.stringify(result).slice(0, 500); } catch (e) { sample = "[JSON.stringify 失败: " + e.message + "]"; }
+  console.log(`[SAMPLE] ${sample}`);
 
   // 解析 OpenAI 兼容响应
   let text = null;
@@ -264,7 +269,7 @@ async function callLLM(system, history) {
     text = result.choices[0].message?.content;
   }
   if (text) return text;
-  throw new Error(`无法解析 AI 响应: result=${safeStringify(result).slice(0, 500)}`);
+  throw new Error(`无法解析 AI 响应: result=${sample}`);
 }
 
 function safeStringify(obj) {
