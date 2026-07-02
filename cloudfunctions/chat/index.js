@@ -152,84 +152,89 @@ P 积极情绪 / E 投入 / R 人际关系 / M 意义 / A 成就
 const DEFAULT_ROLE = "narrative";
 
 // ==============================
-// 调 deepseek-v3 (用 Node.js 内置 https 模块)
-// ==============================
-const https = require("https");
-
-function postJson(hostname, path, headers, body) {
-  return new Promise((resolve, reject) => {
-    const data = JSON.stringify(body);
-    const req = https.request({
-      hostname,
-      path,
-      method: "POST",
-      headers: {
-        ...headers,
-        "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(data),
-      },
-    }, (res) => {
-      let chunks = [];
-      res.on("data", c => chunks.push(c));
-      res.on("end", () => {
-        const text = Buffer.concat(chunks).toString("utf8");
-        if (res.statusCode !== 200) {
-          return reject(new Error(`HTTP ${res.statusCode}: ${text.slice(0, 200)}`));
-        }
-        try {
-          resolve(JSON.parse(text));
-        } catch (e) {
-          reject(new Error(`parse json fail: ${e.message}, text: ${text.slice(0, 100)}`));
-        }
-      });
-    });
-    req.on("error", reject);
-    req.write(data);
-    req.end();
-  });
-}
-
-// ==============================
-// 调大模型 (OpenAI 兼容: AMAX / DeepSeek 等)
-// Provider config 在函数体内, 通过环境变量 AI_PROVIDER 切换
+// 调大模型: 微信云开发内置 AI (wx-server-sdk 的 cloud.ai.createModel)
+// 文档: https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloud/reference-sdk-api/extend/ai.html
+// 通过环境变量 AI_MODEL 切换具体模型 (默认 hy3-preview 混元)
+// 通过环境变量 AI_PROVIDER 切换 provider (默认 hunyuan, 可选 deepseek/kimi/glm/minimax/hunyuan/cloudbase)
+// 不依赖外部 API Key — 微信云开发内置 AI, 内网调用, 无需配置白名单
 // ==============================
 
 async function callLLM(system, history) {
-  // Provider config — 改这一处即可切换 AMAX / DeepSeek / 任何 OpenAI 兼容服务
-  const provider = {
-    keyName: process.env.AI_PROVIDER || "amax",  // "amax" | "deepseek"
-    hostname: process.env.AI_HOSTNAME || "ai.amaxsmp.com",
-    path: process.env.AI_PATH || "/v1/chat/completions",
-    model: process.env.AI_MODEL || "amax-router",
-    envKeyName: process.env.AI_PROVIDER === "deepseek" ? "DEEPSEEK_API_KEY" : "AMAX_API_KEY",
-  };
+  const messages = [
+    { role: "system", content: system },
+    ...history,
+  ];
 
-  const apiKey = process.env[provider.envKeyName];
-  if (!apiKey) {
-    throw new Error(`${provider.envKeyName} not set in cloud env (provider=${provider.keyName})`);
+  const provider = (process.env.AI_PROVIDER || "hunyuan").toLowerCase();
+  const modelName = process.env.AI_MODEL || "hy3-preview";
+
+  console.log(`[callLLM] provider=${provider}, model=${modelName}, messages=${messages.length}`);
+
+  // 走 wx-server-sdk 内置 cloud.ai
+  return callCloudAI(provider, modelName, messages);
+}
+
+// ==============================
+// 微信云开发内置 AI (wx-server-sdk cloud.ai.createModel)
+// 文档: https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloud/reference-sdk-api/extend/ai.html
+// 支持 provider: hunyuan / cloudbase / deepseek / kimi / glm / minimax
+// 实际 createModel 参数是 provider 名, model 名放在 data.model
+// ==============================
+async function callCloudAI(provider, modelName, messages) {
+  // wx-server-sdk 4.0.2 应该支持 cloud.ai.createModel (官方文档说 3.7.1+)
+  // 我们用 generateText 拿完整 JSON 响应 (非流式, 简单稳)
+  let model;
+  try {
+    model = cloud.ai.createModel(provider);
+  } catch (e) {
+    throw new Error(`cloud.ai.createModel("${provider}") 失败: ${e.message}. 可能是 wx-server-sdk 版本不支持, 需要 >= 3.7.1, 推荐 4.0.2`);
   }
 
-  const body = {
-    model: provider.model,
-    messages: [
-      { role: "system", content: system },
-      ...history,
-    ],
-    temperature: 0.7,
-    max_tokens: 800,
-    stream: false,
-  };
-
-  const data = await postJson(
-    provider.hostname,
-    provider.path,
-    { Authorization: `Bearer ${apiKey}` },
-    body,
-  );
-  if (!data.choices || !data.choices[0]) {
-    throw new Error(`${provider.keyName} no choices: ${JSON.stringify(data).slice(0, 200)}`);
+  // generateText 直接返回 JSON 对象: { choices: [{ message: { content } }], ... }
+  let res;
+  try {
+    res = await model.generateText({
+      model: modelName,
+      messages,
+      // temperature: 0.7, // 可选, SDK 有默认值
+    });
+  } catch (e) {
+    // 如果 generateText 失败, 试试 streamText (更通用的 SDK API)
+    console.log(`[callCloudAI] generateText 失败: ${e.message}, 试 streamText`);
+    return await callStreamText(model, modelName, messages);
   }
-  return data.choices[0].message.content;
+
+  // 解析 OpenAI 风格响应
+  if (res && res.choices && res.choices[0] && res.choices[0].message) {
+    return res.choices[0].message.content;
+  }
+  // 兜底: 大写字段
+  if (res && res.Choices && res.Choices[0] && res.Choices[0].Message) {
+    return res.Choices[0].Message.Content;
+  }
+  // 兜底: 直接 content 字段
+  if (res && typeof res === "string") return res;
+  if (res && res.content) return res.content;
+  throw new Error(`无法解析 AI 响应, res 类型=${typeof res}, 摘要=${safeStringify(res).slice(0, 300)}`);
+}
+
+// 兜底: 用 streamText (流式)
+async function callStreamText(model, modelName, messages) {
+  const stream = await model.streamText({
+    data: { model: modelName, messages },
+  });
+  let buf = "";
+  if (stream && stream.textStream) {
+    for await (const chunk of stream.textStream) {
+      buf += chunk;
+    }
+    return buf;
+  }
+  throw new Error(`streamText 返回值无 textStream: ${safeStringify(stream).slice(0, 200)}`);
+}
+
+function safeStringify(obj) {
+  try { return JSON.stringify(obj); } catch { return String(obj); }
 }
 
 // ==============================
@@ -365,18 +370,15 @@ exports.main = async (event, context) => {
     reply = await callLLM(roleConfig.system, history);
     aiSuccess = true;
   } catch (e) {
-    console.error("[chat] deepseek fail:", e.message);
+    console.error("[chat] LLM call fail:", e.message, e.stack);
     reply = null;
-  }
-
-  // 5. 失败 fallback
-  if (!reply) {
-    const fallback = [
-      "我听到你说的话. 我们慢慢来. 你想从哪个点开始?",
-      "谢谢你告诉我. 我在这里倾听. 能再多说一点吗?",
-      "我们一起深呼吸. 你愿意再说说吗?",
-    ];
-    reply = "[本地] " + fallback[Math.floor(Math.random() * fallback.length)];
+    // 把错误也透传给前端 (仅调试期, 上线后删除)
+    return {
+      code: -2,
+      message: "LLM call failed: " + e.message,
+      error_stack: (e.stack || "").slice(0, 500),
+      role_used: roleKey,
+    };
   }
 
   // 6. 写 AI 回复

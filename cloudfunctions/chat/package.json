@@ -1,10 +1,10 @@
 {
   "name": "chat",
-  "version": "2.0.0",
-  "description": "AI 倾诉对话 v2.0 - deepseek-v3 + 6 角色 + 危机 + 上下文",
+  "version": "5.2.0",
+  "description": "AI 倾诉对话 v5.2 - 用 wx-server-sdk 内置 cloud.ai.createModel 调腾讯云开发 AI (混元 hy3-preview)",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "~2.6.3"
+    "wx-server-sdk": "^4.0.2"
   },
   "engines": { "node": "18" }
 }

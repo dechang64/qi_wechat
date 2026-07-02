@@ -42,6 +42,9 @@ Page({
   },
 
   async loadHistory() {
+    // 先重置 messages, 防止 onLoad 多次调用时重复 push welcome
+    this.setData({ messages: [] });
+
     wx.showLoading({ title: "加载历史...", mask: true });
     const res = await app.callFunction("chat", { action: "load" });
     wx.hideLoading();
@@ -57,13 +60,15 @@ Page({
         scrollTo: `msg-${msgs[msgs.length - 1].id}`,
       });
     } else {
-      // 无历史, 显示欢迎语
+      // 无历史, 显示欢迎语 (根据当前选中角色动态生成)
+      const roleName = ROLES.find(r => r.key === this.data.currentRole).name;
+      const roleDesc = ROLES.find(r => r.key === this.data.currentRole).desc;
       this.setData({
         messages: [{
-          id: "welcome",
+          id: "welcome-" + Date.now(),
           role: "bot",
-          content: "你好, 我是祺臻小愈. 我会用叙事治疗的方式倾听你. 你可以说一说最近让你困扰的事吗?",
-          role_used: "narrative",
+          content: `你好, 我是祺臻小愈. 我会用${roleName}(${roleDesc})的方式倾听你. 你可以说一说最近让你困扰的事吗?`,
+          role_used: this.data.currentRole,
         }],
       });
     }
@@ -147,7 +152,8 @@ Page({
         }, 800);
       }
     } else {
-      // 3b. 离线 fallback
+      // 3b. 失败 fallback — 显示真实错误 (调试期)
+      const errMsg = res.message || "未知错误";
       const fallbackReplies = [
         "谢谢你告诉我. 想再具体说一点吗?",
         "我听到你的话了. 慢慢说.",
@@ -156,14 +162,15 @@ Page({
       const botMsg = {
         id: `fb_${Date.now()}`,
         role: "bot",
-        content: "[离线] " + fallbackReplies[Math.floor(Math.random() * fallbackReplies.length)],
+        content: `[❌ 错误] ${errMsg}\n\n(临时本地回复) ${fallbackReplies[Math.floor(Math.random() * fallbackReplies.length)]}`,
         role_used: this.data.currentRole,
       };
       this.setData({
         messages: [...this.data.messages, botMsg],
         scrollTo: `msg-${botMsg.id}`,
       });
-      wx.showToast({ title: "网络异常, 已切换本地回复", icon: "none" });
+      wx.showToast({ title: "AI 调用失败: " + errMsg.slice(0, 30), icon: "none", duration: 3000 });
+      console.error("[chat] AI 调用失败:", errMsg);
     }
   },
 
