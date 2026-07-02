@@ -1,10 +1,11 @@
 {
   "name": "chat",
-  "version": "5.2.0",
-  "description": "AI 倾诉对话 v5.2 - 用 wx-server-sdk 内置 cloud.ai.createModel 调腾讯云开发 AI (混元 hy3-preview)",
+  "version": "5.3.0",
+  "description": "AI 倾诉对话 v5.3 - 用 @cloudbase/node-sdk 的 app.ai().createModel('hunyuan').doGenerate({messages}) 调腾讯云开发 AI (混元 hy3-preview)",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "^4.0.2"
+    "wx-server-sdk": "^4.0.2",
+    "@cloudbase/node-sdk": "^3.18.3"
   },
   "engines": { "node": "18" }
 }

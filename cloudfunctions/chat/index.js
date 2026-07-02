@@ -152,12 +152,46 @@ P 积极情绪 / E 投入 / R 人际关系 / M 意义 / A 成就
 const DEFAULT_ROLE = "narrative";
 
 // ==============================
-// 调大模型: 微信云开发内置 AI (wx-server-sdk 的 cloud.ai.createModel)
-// 文档: https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloud/reference-sdk-api/extend/ai.html
-// 通过环境变量 AI_MODEL 切换具体模型 (默认 hy3-preview 混元)
-// 通过环境变量 AI_PROVIDER 切换 provider (默认 hunyuan, 可选 deepseek/kimi/glm/minimax/hunyuan/cloudbase)
-// 不依赖外部 API Key — 微信云开发内置 AI, 内网调用, 无需配置白名单
 // ==============================
+// 调大模型: 腾讯云 CloudBase 内置 AI (@cloudbase/node-sdk)
+// 真实 API (从 dist/cjs/AI.d.ts + models/HunYuan/index.js + util.js 源码验证):
+//   const tcb = require("@cloudbase/node-sdk");
+//   const app = tcb.init({ env: "qi-wechat-dev-d7gxd20xreb567ce2" });  // 字符串!
+//   const ai = app.ai();
+//   const model = ai.createModel("hunyuan");                              // HunYuanSimpleModel
+//   const result = await model.doGenerate({                              // 真实方法名 (不是 modelRequest)
+//     messages: [{ role: "user", content: "..." }],
+//     model: "hy3-preview",                                              // 可选, 默认 hunyuan-turbo
+//     temperature: 0.7,
+//   });
+//   // 返回值结构: { response: { choices: [{ message: { content } }] }, rawResponse: {...} }
+//   // 文本: result.response.choices[0].message.content
+//   // 或者: result.rawResponse.Response.Choices[0].Message.Content (腾讯混元原生字段)
+//
+// 通过环境变量 AI_MODEL 切换具体模型 (默认 hy3-preview 混元)
+// 通过环境变量 AI_PROVIDER 切换 provider (默认 hunyuan, 可选 deepseek/dashscope/ark 等)
+// 不依赖外部 API Key — CloudBase 内置 AI 调用
+// ==============================
+
+// @cloudbase/node-sdk 是云函数端 AI 的唯一正解
+const tcb = require("@cloudbase/node-sdk");
+const ENV_ID = process.env.WX_ENV_ID || "qi-wechat-dev-d7gxd20xreb567ce2";
+
+// 把 tcb.init 放外面 (云函数冷启动时初始化一次), 不要每次 callLLM 都重新 init
+let _tcbApp = null;
+let _tcbAi = null;
+function getAi() {
+  if (_tcbAi) return _tcbAi;
+  try {
+    // 必须传字符串 env ID! Symbol 不行 (跨包 Symbol 不兼容)
+    _tcbApp = tcb.init({ env: ENV_ID });
+    _tcbAi = _tcbApp.ai();
+    console.log(`[tcb.init] 成功, env=${ENV_ID}, ai keys: ${Object.keys(_tcbAi || {}).join(",")}`);
+    return _tcbAi;
+  } catch (e) {
+    throw new Error(`tcb.init({env:"${ENV_ID}"}) 失败: ${e.message}`);
+  }
+}
 
 async function callLLM(system, history) {
   const messages = [
@@ -170,67 +204,43 @@ async function callLLM(system, history) {
 
   console.log(`[callLLM] provider=${provider}, model=${modelName}, messages=${messages.length}`);
 
-  // 走 wx-server-sdk 内置 cloud.ai
-  return callCloudAI(provider, modelName, messages);
-}
+  const ai = getAi();
 
-// ==============================
-// 微信云开发内置 AI (wx-server-sdk cloud.ai.createModel)
-// 文档: https://developers.weixin.qq.com/miniprogram/dev/wxcloudservice/wxcloud/reference-sdk-api/extend/ai.html
-// 支持 provider: hunyuan / cloudbase / deepseek / kimi / glm / minimax
-// 实际 createModel 参数是 provider 名, model 名放在 data.model
-// ==============================
-async function callCloudAI(provider, modelName, messages) {
-  // wx-server-sdk 4.0.2 应该支持 cloud.ai.createModel (官方文档说 3.7.1+)
-  // 我们用 generateText 拿完整 JSON 响应 (非流式, 简单稳)
+  // 真实方法: ai.createModel(provider).doGenerate({messages, model, temperature})
+  // createModel 返回的 model 实例类型是 ReactModel (abstract)
+  // HunYuan 实现是 HunYuanSimpleModel (在 dist/cjs/models/HunYuan/index.js)
   let model;
   try {
-    model = cloud.ai.createModel(provider);
+    model = ai.createModel(provider);
   } catch (e) {
-    throw new Error(`cloud.ai.createModel("${provider}") 失败: ${e.message}. 可能是 wx-server-sdk 版本不支持, 需要 >= 3.7.1, 推荐 4.0.2`);
+    throw new Error(`ai.createModel("${provider}") 失败: ${e.message}. @cloudbase/node-sdk 3.18.3 支持的 provider: hunyuan / hunyuan-exp / hunyuan-beta / deepseek / moonshot / ark / dashscope / yi / zhipu / default`);
   }
 
-  // generateText 直接返回 JSON 对象: { choices: [{ message: { content } }], ... }
-  let res;
+  let result;
   try {
-    res = await model.generateText({
-      model: modelName,
+    result = await model.doGenerate({
       messages,
-      // temperature: 0.7, // 可选, SDK 有默认值
+      model: modelName,
+      temperature: 0.7,
     });
   } catch (e) {
-    // 如果 generateText 失败, 试试 streamText (更通用的 SDK API)
-    console.log(`[callCloudAI] generateText 失败: ${e.message}, 试 streamText`);
-    return await callStreamText(model, modelName, messages);
+    throw new Error(`model.doGenerate({messages, model:"${modelName}"}) 失败: ${e.message}. 检查 modelName 是否在该 provider 支持的列表里`);
   }
 
-  // 解析 OpenAI 风格响应
-  if (res && res.choices && res.choices[0] && res.choices[0].message) {
-    return res.choices[0].message.content;
+  // 解析返回: 优先 snake_case (doGenerate 已经转过), 兜底 PascalCase
+  let text = null;
+  if (result && result.response && result.response.choices && result.response.choices[0]) {
+    text = result.response.choices[0].message?.content || result.response.choices[0].text;
   }
-  // 兜底: 大写字段
-  if (res && res.Choices && res.Choices[0] && res.Choices[0].Message) {
-    return res.Choices[0].Message.Content;
-  }
-  // 兜底: 直接 content 字段
-  if (res && typeof res === "string") return res;
-  if (res && res.content) return res.content;
-  throw new Error(`无法解析 AI 响应, res 类型=${typeof res}, 摘要=${safeStringify(res).slice(0, 300)}`);
-}
-
-// 兜底: 用 streamText (流式)
-async function callStreamText(model, modelName, messages) {
-  const stream = await model.streamText({
-    data: { model: modelName, messages },
-  });
-  let buf = "";
-  if (stream && stream.textStream) {
-    for await (const chunk of stream.textStream) {
-      buf += chunk;
+  // 兜底: 腾讯混元原生 PascalCase 字段 (rawResponse.Response.Choices[0].Message.Content)
+  if (!text && result && result.rawResponse && result.rawResponse.Response) {
+    const r = result.rawResponse.Response;
+    if (r.Choices && r.Choices[0]) {
+      text = r.Choices[0].Message?.Content || r.Choices[0].Message?.content;
     }
-    return buf;
   }
-  throw new Error(`streamText 返回值无 textStream: ${safeStringify(stream).slice(0, 200)}`);
+  if (text) return text;
+  throw new Error(`无法解析 AI 响应, result 摘要=${safeStringify(result).slice(0, 500)}`);
 }
 
 function safeStringify(obj) {
