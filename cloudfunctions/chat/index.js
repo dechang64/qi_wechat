@@ -264,21 +264,31 @@ async function callLLM(system, history) {
   console.log(`[RESULT] keys=[${Object.keys(result || {}).join(",")}], sample=${safeStringify(result).slice(0, 500)}`);
 
   // 解析 OpenAI 兼容响应 (来自 ai.modelRequest 走 ${aiBaseUrl}/cloudbase/chat/completions)
-  //   { id, object, created, model, choices: [{index, message: {role, content}, finish_reason}], usage: {prompt_tokens, completion_tokens, total_tokens}, note }
+  //   响应形态可能是:
+  //   - 直接 JSON: { id, choices: [{message: {content}}], usage, note }
+  //   - 包装: { data: {...JSON...}, header: {...} } (云函数 req.fetch 包装)
+  //   - 流式 raw responseData
   let text = null;
-  if (typeof result === "string") {
-    text = result;
-  } else if (result && Array.isArray(result.choices) && result.choices[0]) {
-    text = result.choices[0].message?.content || result.choices[0].text;
-  } else if (result && result.response && result.response.choices && result.response.choices[0]) {
-    text = result.response.choices[0].message?.content || result.response.choices[0].text;
-  } else if (result && result.rawResponse && result.rawResponse.Response) {
-    const r = result.rawResponse.Response;
+  let parsed = result;
+  // 解包装 {data, header}
+  if (parsed && parsed.data && typeof parsed.data === 'object') {
+    parsed = parsed.data;
+  }
+  if (typeof parsed === "string") {
+    text = parsed;
+  } else if (parsed && Array.isArray(parsed.choices) && parsed.choices[0]) {
+    text = parsed.choices[0].message?.content || parsed.choices[0].text;
+  } else if (parsed && parsed.response && parsed.response.choices && parsed.response.choices[0]) {
+    text = parsed.response.choices[0].message?.content || parsed.response.choices[0].text;
+  } else if (parsed && parsed.rawResponse && parsed.rawResponse.Response) {
+    const r = parsed.rawResponse.Response;
     if (r.Choices && r.Choices[0]) {
       text = r.Choices[0].Message?.Content || r.Choices[0].Message?.content;
     }
-  } else if (result && typeof result.text === "string") {
-    text = result.text;
+  } else if (parsed && parsed.rawResponse && parsed.rawResponse.choices && parsed.rawResponse.choices[0]) {
+    text = parsed.rawResponse.choices[0].message?.content;
+  } else if (parsed && typeof parsed.text === "string") {
+    text = parsed.text;
   }
   if (text) return text;
   throw new Error(`无法解析 AI 响应, result 摘要=${safeStringify(result).slice(0, 500)}`);
