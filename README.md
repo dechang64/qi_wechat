@@ -21,15 +21,15 @@
 | [docs/CLOUD_SETUP.md](docs/CLOUD_SETUP.md) | 云开发开通 + 集合创建 |
 | [docs/WECHAT_DEVTOOL_GUIDE.md](docs/WECHAT_DEVTOOL_GUIDE.md) | 微信开发者工具图文流程 |
 | [docs/SETUP.md](docs/SETUP.md) | 项目部署 |
-| **docs/AI_SETUP.md** ⭐ | **AI 接入配置 (deepseek-v3)** |
+| **docs/AI_SETUP.md** ⭐ | **AI 接入配置 (AMAX / DeepSeek)** |
 
 ## Phase 2 快速开始
 
 ```bash
-# 1. 获取 deepseek API key (https://platform.deepseek.com/api_keys)
+# 1. 获取 AMAX API key
 
 # 2. 微信开发者工具 → 云开发 → 设置 → 环境变量
-#    DEEPSEEK_API_KEY = sk-your-key
+#    AMAX_API_KEY = sk-your-key
 
 # 3. 重新部署 chat 云函数
 #    左键 cloudfunctions/chat → 右键 → 创建并部署: 云端安装依赖
@@ -48,7 +48,7 @@
 - **微信小程序** (WXML/WXSS/JS, 不用任何框架)
 - **云函数** (Node.js 18, wx-server-sdk)
 - **云数据库** (微信云开发, 5 集合: users / messages / assessments / bookings / crisis_logs + daily_tips_logs)
-- **AI** (deepseek-v3, OpenAI 兼容 API)
+- **AI** (AMAX OpenAI 兼容 API / DeepSeek, 路由模型 amax-router)
 
 ## 项目结构
 

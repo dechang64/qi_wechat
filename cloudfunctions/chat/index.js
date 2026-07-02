@@ -189,14 +189,28 @@ function postJson(hostname, path, headers, body) {
   });
 }
 
-async function callDeepseek(system, history) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+// ==============================
+// 调大模型 (OpenAI 兼容: AMAX / DeepSeek 等)
+// Provider config 在函数体内, 通过环境变量 AI_PROVIDER 切换
+// ==============================
+
+async function callLLM(system, history) {
+  // Provider config — 改这一处即可切换 AMAX / DeepSeek / 任何 OpenAI 兼容服务
+  const provider = {
+    keyName: process.env.AI_PROVIDER || "amax",  // "amax" | "deepseek"
+    hostname: process.env.AI_HOSTNAME || "ai.amaxsmp.com",
+    path: process.env.AI_PATH || "/v1/chat/completions",
+    model: process.env.AI_MODEL || "amax-router",
+    envKeyName: process.env.AI_PROVIDER === "deepseek" ? "DEEPSEEK_API_KEY" : "AMAX_API_KEY",
+  };
+
+  const apiKey = process.env[provider.envKeyName];
   if (!apiKey) {
-    throw new Error("DEEPSEEK_API_KEY not set in cloud env");
+    throw new Error(`${provider.envKeyName} not set in cloud env (provider=${provider.keyName})`);
   }
 
   const body = {
-    model: "deepseek-chat",  // = deepseek-v3
+    model: provider.model,
     messages: [
       { role: "system", content: system },
       ...history,
@@ -207,13 +221,13 @@ async function callDeepseek(system, history) {
   };
 
   const data = await postJson(
-    "api.deepseek.com",
-    "/v1/chat/completions",
+    provider.hostname,
+    provider.path,
     { Authorization: `Bearer ${apiKey}` },
     body,
   );
   if (!data.choices || !data.choices[0]) {
-    throw new Error(`deepseek no choices: ${JSON.stringify(data).slice(0, 200)}`);
+    throw new Error(`${provider.keyName} no choices: ${JSON.stringify(data).slice(0, 200)}`);
   }
   return data.choices[0].message.content;
 }
@@ -348,7 +362,7 @@ exports.main = async (event, context) => {
   let reply;
   let aiSuccess = false;
   try {
-    reply = await callDeepseek(roleConfig.system, history);
+    reply = await callLLM(roleConfig.system, history);
     aiSuccess = true;
   } catch (e) {
     console.error("[chat] deepseek fail:", e.message);

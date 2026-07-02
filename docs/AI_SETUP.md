@@ -1,7 +1,7 @@
-# AI 接入配置 (deepseek-v3)
+# AI 接入配置 (AMAX OpenAI 兼容 API)
 
-> 适用于 qi_wechat v0.2 / Phase 2 部署。  
-> 完成此文档后,你的 AI 倾诉, 上下文记忆, 危机检测功能即可端到端跑通。
+> 适用于 qi_wechat v1.0 / Phase 2 部署。  
+> 支持 **AMAX** (默认) 和 **DeepSeek** 两个 provider, 通过环境变量切换。
 
 ---
 
@@ -14,48 +14,87 @@
 | ✅ 跨上下文 (最近 16 条) | 已实现 | `chat` 云函数 `history` 拼接 |
 | ✅ 历史消息云端持久化 | 已实现 | 集合 `messages` |
 | ✅ 历史加载 + 清空 | 已实现 | 前端 `pages/chat/chat.js` |
-| ✅ 打字机效果 | 已实现 | `chat.js` `startTyping()` |
+| ✅ 打字机效果 | 已实现 | `chat.js` `_startTyping()` |
 | ✅ 每日一笺 | 已实现 | `cloudfunctions/daily_tips/` |
-| ⚠️ deepseek-v3 调用 | **需要 API Key** | `chat` 云函数 `callDeepseek()` |
+| ⚠️ LLM 调用 | **需要 API Key** | `chat` 云函数 `callLLM()` (OpenAI 兼容) |
 
 ---
 
-## 1. 获取 deepseek API Key (5 min)
+## 1. 获取 AMAX API Key (推荐, ~3 min)
 
-### 1.1 注册
-访问 https://platform.deepseek.com → 注册账号 (用手机/邮箱都行)
+### 1.1 注册 + 充值
 
-### 1.2 充值
-- **首次充值**: 至少 ¥10 (¥10 够用 ~5000 次对话)
-- 路径: https://platform.deepseek.com/top_up → 微信/支付宝扫码
+- 访问 AMAX 控制台 (联系管理员获取入口 URL)
+- 充值: ¥10-¥100 (按用量)
 
-### 1.3 创建 API Key
-- 路径: https://platform.deepseek.com/api_keys
-- 点击 **"创建新 key"**
-- 名字: `qi_wechat`
-- **复制 key**: 形如 `sk-xxxxxxxxxxxxxxxx` (约 35 字符)
-- ⚠️ **只能创建时看一次**, 关掉页面就再也看不到!
+### 1.2 创建 API Key
 
-### 1.4 价格 (deepseek-v3)
-- 输入: 1¥ / 百万 tokens
-- 输出: 2¥ / 百万 tokens
-- 一次倾诉聊天 ≈ 800-1500 tokens → 大约 ¥0.002-0.005
+- 创建 key, 名字 `qi_wechat`
+- 复制: `sk-xxxxxxxxxxxxxxxx`
+- ⚠️ **只能创建时看一次!**
+
+### 1.3 AMAX API 文档摘要
+
+| 项 | 值 |
+|---|---|
+| Base URL | `https://ai.amaxsmp.com/v1` |
+| 鉴权 | `Authorization: Bearer sk-xxx` |
+| 模型 | `amax-router` (智能路由, 平台自动选模型) |
+| 请求格式 | OpenAI Chat Completions 兼容 |
+
+**Python 示例** (来自 AMAX 文档):
+```python
+from openai import OpenAI
+client = OpenAI(
+    api_key="sk-your-api-key",
+    base_url="https://ai.amaxsmp.com/v1"
+)
+response = client.chat.completions.create(
+    model="amax-router",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "请用一句话介绍 Amax Router."}
+    ]
+)
+print(response.choices[0].message.content)
+```
+
+我们的云函数就是 Node.js 等价实现。
 
 ---
 
 ## 2. 配置到云函数 (1 min, 最重要!)
 
-### 2.1 打开微信开发者工具
+### 2.1 微信开发者工具
 
 ### 2.2 顶部菜单 → "云开发" → 你的环境 (`qi-wechat-dev-d7gxd20xreb567ce2`)
 
-### 2.3 左侧菜单 → "设置" → "环境变量" (或顶 tab "云函数配置")
+### 2.3 左侧菜单 → "设置" → "环境变量"
 
 ### 2.4 添加环境变量
 
+**默认配置 (AMAX)** — 只需要一个:
+
 | 变量名 | 变量值 | 说明 |
 |---|---|---|
-| `DEEPSEEK_API_KEY` | `sk-xxxxxx` (你刚创建) | deepseek 鉴权 key |
+| `AMAX_API_KEY` | `sk-xxxxxx` | AMAX 鉴权 key |
+
+**可选配置** — 想换 provider / 模型时:
+
+| 变量名 | 默认值 | 说明 |
+|---|---|---|
+| `AI_PROVIDER` | `amax` | 留空即用默认 amax |
+| `AI_HOSTNAME` | `ai.amaxsmp.com` | 留空即用默认 |
+| `AI_PATH` | `/v1/chat/completions` | 留空即用默认 |
+| `AI_MODEL` | `amax-router` | 留空即用默认 |
+
+**切换到 DeepSeek** 时:
+| 变量名 | 变量值 |
+|---|---|
+| `AI_PROVIDER` | `deepseek` |
+| `AI_HOSTNAME` | `api.deepseek.com` |
+| `AI_MODEL` | `deepseek-chat` |
+| `DEEPSEEK_API_KEY` | `sk-deepseek-xxx` |
 
 ### 2.5 保存
 
@@ -89,19 +128,31 @@
    - 打字机效果 (看到 `▌` 光标)
    - AI 用叙事治疗师语气回复
 
+### 4.2 故障排查
+
 ⚠️ **如果报错** 看到类似:
 ```
-[chat] deepseek fail: deepseek 401: ...
+[chat] amax no choices: ...
 ```
-→ 检查步骤 2.4 的 `DEEPSEEK_API_KEY` 是否正确(检查首尾有没有空格)
+或:
+```
+amax HTTP 401: ...
+```
+→ 检查环境变量 `AMAX_API_KEY` 是否正确 (检查首尾有没有空格)
 
-⚠️ **如果报错** 看到:
+⚠️ **如果报错**:
 ```
-DEEPSEEK_API_KEY not set in cloud env
+AMAX_API_KEY not set in cloud env (provider=amax)
 ```
 → 必须重新部署 chat 云函数 (步骤 3.1)
 
-### 4.2 测试 daily_tips
+⚠️ **如果报网络错误**:
+```
+amax HTTP 5xx: ...
+```
+→ AMAX 服务端问题, 等几分钟再试
+
+### 4.3 测试 daily_tips
 
 1. 进入首页 (tab "首页")
 2. 应该看到 "✨ 今日一笺" 卡片, 显示一条心理常识
@@ -143,22 +194,35 @@ DEEPSEEK_API_KEY not set in cloud env
 
 ---
 
-## 7. 故障排查
+## 7. Provider 切换对照表
 
-| 症状 | 原因 | 解决 |
-|---|---|---|
-| `DEEPSEEK_API_KEY not set` | 没配环境变量, 或没重新部署 | 步骤 2.4 + 3.1 |
-| `deepseek 401: ...` | Key 错误或过期 | 重新创建 key |
-| `deepseek 402: ...` | 余额不足 | 充值 ¥10+ |
-| `TypeError: Cannot read property 'fetch'` | 老版 wx-server-sdk | 升级或重装依赖 |
-| AI 回复慢 (>5s) | 网络问题 | 切到云函数本地调试查看日志 |
-| 没看到打字机 | setData 太快, 看不到 mid | 改 step = ceil(len/100) |
+| Provider | AI_PROVIDER | AI_HOSTNAME | AI_MODEL | 环境变量 Key |
+|---|---|---|---|---|
+| **AMAX (默认)** | (留空) `amax` | `ai.amaxsmp.com` | `amax-router` | `AMAX_API_KEY` |
+| DeepSeek | `deepseek` | `api.deepseek.com` | `deepseek-chat` | `DEEPSEEK_API_KEY` |
+| 任意 OpenAI 兼容 | 自定义 | 自定义 | 自定义 | 自定义 |
+
+切换流程: 改环境变量 → 重新部署 chat 云函数 → 完成。
 
 ---
 
-## 8. 下一步可选优化 (留给你)
+## 8. 故障排查速查表
 
-- [ ] **流式输出** (真正的 streaming) — deepseek 支持 SSE, 可让 AI 一边生成一边显示
+| 症状 | 原因 | 解决 |
+|---|---|---|
+| `AMAX_API_KEY not set` | 没配环境变量, 或没重新部署 | 步骤 2.4 + 3.1 |
+| `amax HTTP 401` | Key 错误或过期 | 重新创建 key |
+| `amax HTTP 402` | 余额不足 | 充值 |
+| `amax HTTP 429` | 请求过快 | 加 retry 间隔 |
+| `TypeError: Cannot read property 'fetch'` | (v1.0 已修) Node https 模块替换 | 升级代码 |
+| AI 回复慢 (>5s) | 网络问题 | 切到云函数本地调试查看日志 |
+| 没看到打字机 | setData 太快 | 改 step = ceil(len/100) |
+
+---
+
+## 9. 下一步可选优化 (留给你)
+
+- [ ] **流式输出** (真正的 SSE streaming) — amax-router 支持
 - [ ] **语音输入** — 微信 wx.cloud.io + 腾讯云 ASR
 - [ ] **记忆总结** — 每 50 条压缩一次历史, 节省 token
 - [ ] **多语言** — 切换英文 prompt, 服务留学生社区
