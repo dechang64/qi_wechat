@@ -234,14 +234,39 @@ async function callLLM(system, history) {
   console.log(`[MODEL DIAG] provider=${provider}, model.constructor=${model.constructor.name}, methods=[${modelProtoMethods.join(",")}], typeof doGenerate=${typeof model.doGenerate}, typeof doStream=${typeof model.doStream}, typeof chatCompletion=${typeof model.chatCompletion}`);
 
   let result;
-  try {
-    result = await model.doGenerate({
-      messages,
-      model: modelName,
-      temperature: 0.7,
-    });
-  } catch (e) {
-    throw new Error(`model.doGenerate({messages, model:"${modelName}"}) 失败: ${e.message}. 检查 modelName 是否在该 provider 支持的列表里`);
+  // 探测: 真实 SDK 版本不同, model 上的方法可能不同. 自动尝试常见方法名.
+  const probeMethods = ['doGenerate', 'doStream', 'chatCompletion', 'generateText', 'textCompletion'];
+  const availableMethods = probeMethods.filter(m => typeof model[m] === 'function');
+  console.log(`[MODEL DIAG] model.availableMethods=[${availableMethods.join(",")}], model.url=${model.url || "no url"}, model.subUrl=${model.subUrl || "no subUrl"}`);
+
+  // 优先 doGenerate, 否则 fallback 到 ai.modelRequest (直接调用, 不通过 model wrapper)
+  if (typeof model.doGenerate === 'function') {
+    try {
+      result = await model.doGenerate({
+        messages,
+        model: modelName,
+        temperature: 0.7,
+      });
+    } catch (e) {
+      throw new Error(`model.doGenerate({messages, model:"${modelName}"}) 失败: ${e.message}. 检查 modelName 是否在该 provider 支持的列表里`);
+    }
+  } else if (typeof ai.modelRequest === 'function') {
+    // Fallback: 直接调 ai.modelRequest (SDK 真实底层 API, 不依赖 model wrapper)
+    console.log(`[FALLBACK] model.doGenerate 不存在, 改用 ai.modelRequest 直接调用`);
+    try {
+      const url = model.url || `${ai.aiBaseUrl || ai.baseUrl}/hunyuan`;
+      const rawRes = await ai.modelRequest({
+        url,
+        data: { messages, model: modelName, temperature: 0.7, stream: false },
+        stream: false,
+      });
+      // modelRequest 直接返 SDK 响应对象 (已经是 JSON 或 Response 包装), 走 rawResponse 兜底解析
+      result = { rawResponse: rawRes };
+    } catch (e) {
+      throw new Error(`ai.modelRequest 失败: ${e.message}`);
+    }
+  } else {
+    throw new Error(`model 上无 doGenerate 且 ai.modelRequest 也不存在! availableMethods=[${availableMethods.join(",")}]. 需要看 [SDK DIAG] 日志确认 @cloudbase/node-sdk 版本`);
   }
 
   // 解析返回: 优先 snake_case (doGenerate 已经转过), 兜底 PascalCase
