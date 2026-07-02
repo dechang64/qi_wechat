@@ -186,7 +186,13 @@ function getAi() {
     // 必须传字符串 env ID! Symbol 不行 (跨包 Symbol 不兼容)
     _tcbApp = tcb.init({ env: ENV_ID });
     _tcbAi = _tcbApp.ai();
-    console.log(`[tcb.init] 成功, env=${ENV_ID}, ai keys: ${Object.keys(_tcbAi || {}).join(",")}`);
+    // 诊断 SDK 实际版本 + AI 实例方法 (云端可能装到不同版本, 老版本 API 不同)
+    let sdkVersion = "unknown";
+    try { sdkVersion = require("@cloudbase/node-sdk/package.json").version; } catch {}
+    let aiKeys = Object.keys(_tcbAi || {}).join(",");
+    let modelReqType = typeof _tcbAi.modelRequest;
+    let botType = typeof _tcbAi.bot;
+    console.log(`[SDK DIAG] @cloudbase/node-sdk version=${sdkVersion}, ai keys=[${aiKeys}], modelRequest=${modelReqType}, bot=${botType}`);
     return _tcbAi;
   } catch (e) {
     throw new Error(`tcb.init({env:"${ENV_ID}"}) 失败: ${e.message}`);
@@ -215,6 +221,17 @@ async function callLLM(system, history) {
   } catch (e) {
     throw new Error(`ai.createModel("${provider}") 失败: ${e.message}. @cloudbase/node-sdk 3.18.3 支持的 provider: hunyuan / hunyuan-exp / hunyuan-beta / deepseek / moonshot / ark / dashscope / yi / zhipu / default`);
   }
+
+  // 诊断 model 实例上的真实方法 (云端 SDK 版本可能不同)
+  let modelProtoMethods = [];
+  try {
+    let proto = Object.getPrototypeOf(model);
+    while (proto && proto !== Object.prototype) {
+      modelProtoMethods = modelProtoMethods.concat(Object.getOwnPropertyNames(proto));
+      proto = Object.getPrototypeOf(proto);
+    }
+  } catch {}
+  console.log(`[MODEL DIAG] provider=${provider}, model.constructor=${model.constructor.name}, methods=[${modelProtoMethods.join(",")}], typeof doGenerate=${typeof model.doGenerate}, typeof doStream=${typeof model.doStream}, typeof chatCompletion=${typeof model.chatCompletion}`);
 
   let result;
   try {
