@@ -4,6 +4,7 @@
 
 const cloud = require("wx-server-sdk");
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
+const https = require("https"); // Node 内置, 微信云函数 runtime Node 14/16 没 fetch 必须用 https 模块
 
 // ==============================
 // 19 关键词危机检测 (PRD 7.1)
@@ -246,23 +247,40 @@ async function callLLM(system, history) {
     if (!apiKey) throw new Error("AI_API_KEY 未设置 (provider=amax 需要, 从 AMAX 用户中心拿 sk-xxx)");
     const url = baseUrl + "/chat/completions";
     console.log(`[AMAX CALL] url=${url}, model=${modelName}`);
-    // 微信云函数支持外部 HTTPS:
-    // 依据: 腾讯云博客 https://cloud.tencent.com/developer/article/1561898 (云函数发 HTTP/HTTPS 请求)
-    //       AMAX 官方王康 2026-07-02 微信群确认 "云函数可以, 只需 API key + base"
-    // 注意: 走外部 HTTPS 消耗"外网出流量"配额 (4GB 免费), 超限停服, 不像 CloudBase 内部 RPC 免费
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({ model: modelName, messages, temperature: 0.7, stream: false }),
+    // 微信云函数支持外部 HTTPS (王康 2026-07-02 微信群确认).
+    // ⚠️ 云函数 runtime 是 Node 14/16, 没有内置 fetch! 必须用 https 模块 (Node 内置, 零依赖)
+    // 依据: 腾讯云博客 https://cloud.tencent.com/developer/article/1561898 (云函数发 HTTPS)
+    const data = await new Promise((resolve, reject) => {
+      const u = new URL(url);
+      const body = JSON.stringify({ model: modelName, messages, temperature: 0.7, stream: false });
+      const req = https.request({
+        hostname: u.hostname,
+        port: 443,
+        path: u.pathname + u.search,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Length": Buffer.byteLength(body),
+        },
+        timeout: 30000,
+      }, (res) => {
+        let chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf-8");
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            return reject(new Error(`AMAX HTTP ${res.statusCode}: ${text.slice(0, 300)}`));
+          }
+          try { resolve(JSON.parse(text)); }
+          catch (e) { reject(new Error(`AMAX 解析 JSON 失败: ${e.message}, body=${text.slice(0, 200)}`)); }
+        });
+      });
+      req.on("error", reject);
+      req.on("timeout", () => req.destroy(new Error("AMAX 请求超时 30s")));
+      req.write(body);
+      req.end();
     });
-    if (!resp.ok) {
-      const errBody = await resp.text();
-      throw new Error(`AMAX HTTP ${resp.status}: ${errBody.slice(0, 300)}`);
-    }
-    const data = await resp.json();
     console.log(`[AMAX RESULT] keys=[${Object.keys(data || {}).join(",")}]`);
     if (data && Array.isArray(data.choices) && data.choices[0]) {
       return data.choices[0].message?.content;
