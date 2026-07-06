@@ -1,7 +1,7 @@
 {
   "name": "chat",
-  "version": "6.1.0",
-  "description": "AI 倾诉对话 v6.1 - v6.0.1 双 provider (cloudbase/amax) + v6.1 P0 Self-Critique 守门员 (防幻觉, GUARD_ENABLED=false 可关)",
+  "version": "6.2.0",
+  "description": "AI 倾诉对话 v6.2 - v6.1 Self-Critique + 知识库 RAG (12 篇权威内容) + 12356 全国心理援助热线 (替代旧号码)",
   "main": "index.js",
   "dependencies": {
     "wx-server-sdk": "^4.0.2",

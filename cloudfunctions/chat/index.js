@@ -1,10 +1,115 @@
 // 云函数: chat
 // Phase 2: 接入 deepseek-v3 + 6 心理疗法角色 + 危机检测 + 跨上下文记忆
+// v6.2 (2026-07-05): + 知识库 RAG + 12356 危机响应 + Self-Critique 守门员
 // PRD: 6.1 角色设定, 6.2 跨社区, 4.3 危机应急
 
 const cloud = require("wx-server-sdk");
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const https = require("https"); // Node 内置, 微信云函数 runtime Node 14/16 没 fetch 必须用 https 模块
+const fs = require("fs");
+const path = require("path");
+
+// ==============================
+// v6.2 知识库 RAG 检索
+// ==============================
+// 微信云函数 __dirname 是云端代码目录, 本地测试用相对路径兜底
+const KB_DIR = process.env.KB_DIR || path.join(__dirname, "../../knowledge_base");
+
+let KB_CACHE = null;
+
+function loadKnowledgeBase() {
+  if (KB_CACHE) return KB_CACHE;
+  const docs = [];
+  const walk = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        walk(full);
+      } else if (e.name.endsWith(".md")) {
+        try {
+          const content = fs.readFileSync(full, "utf8");
+          // 简单 frontmatter 解析 (兼容无 --- 包裹的情况)
+          const fm = {};
+          const lines = content.split("\n");
+          let inFm = true;
+          for (let i = 0; i < Math.min(lines.length, 10); i++) {
+            const line = lines[i].trim();
+            if (line === "---") { inFm = false; continue; }
+            if (line === "" && Object.keys(fm).length > 0) { inFm = false; continue; }
+            if (inFm && line.includes(":") && !line.startsWith("#")) {
+              const [k, v] = line.split(":", 2);
+              fm[k.trim()] = v.trim();
+            } else {
+              break;
+            }
+          }
+          docs.push({
+            path: full,
+            title: fm.title || e.name.replace(".md", ""),
+            category: fm.category || "",
+            tags: (fm.tags || "").replace(/[\[\]]/g, "").split(",").map(s => s.trim()).filter(Boolean),
+            risk_level: fm.risk_level || "low",
+            content: content,
+          });
+        } catch (err) {
+          console.error(`[KB] load fail: ${full}: ${err.message}`);
+        }
+      }
+    }
+  };
+  walk(KB_DIR);
+  KB_CACHE = docs;
+  console.log(`[KB] loaded ${docs.length} docs from ${KB_DIR}`);
+  return docs;
+}
+
+// 简单 keyword overlap 检索 (Node.js 内置, 无外部依赖)
+// 比 Python TF-IDF 简单, 但生产足够 — query 与 doc tags + title + 前 500 字 overlap
+function searchKB(query, docs, topK = 3) {
+  const q = (query || "").toLowerCase();
+  if (!q) return [];
+  // 提取中文字符 + 英文单词作为查询 token
+  const qTokens = [];
+  const cnChars = q.match(/[\u4e00-\u9fff]+/g) || [];
+  for (const seg of cnChars) {
+    // 单字 + 双字组合 (弥补 jieba 缺失)
+    for (let i = 0; i < seg.length; i++) {
+      qTokens.push(seg[i]);
+      if (i < seg.length - 1) qTokens.push(seg.substr(i, 2));
+    }
+  }
+  const enWords = q.match(/[a-z]+/g) || [];
+  qTokens.push(...enWords);
+
+  const scored = docs.map(doc => {
+    let score = 0;
+    const titleLower = doc.title.toLowerCase();
+    const tagsLower = doc.tags.join(" ").toLowerCase();
+    const bodyLower = doc.content.toLowerCase();
+    for (const t of qTokens) {
+      if (!t) continue;
+      if (titleLower.includes(t)) score += 5;
+      if (tagsLower.includes(t)) score += 4;
+      if (bodyLower.includes(t)) score += 1;
+    }
+    return { doc, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  return scored.filter(s => s.score > 0).slice(0, topK).map(s => s.doc);
+}
+
+function buildKBContext(retrieved) {
+  if (!retrieved || retrieved.length === 0) return "";
+  let ctx = "\n\n【知识库参考 (用于提升回答准确性, 不要原样复述, 引用关键事实即可)】\n";
+  for (const doc of retrieved) {
+    // 取每个文档前 600 字 (避免 prompt 爆炸)
+    const excerpt = doc.content.slice(0, 600).replace(/\n+/g, " ").trim();
+    ctx += `\n[${doc.title}] ${excerpt}...\n`;
+  }
+  return ctx;
+}
 
 // ==============================
 // 19 关键词危机检测 (PRD 7.1)
@@ -445,8 +550,9 @@ exports.main = async (event, context) => {
     const crisisReply = `我听到你说的话. 我很关心你. 此刻你不是一个人, 我们一起面对.
 
 如果你想立即和一位真人聊聊, 请拨打:
-📞 全国心理援助热线 400-161-9995 (24h)
-📞 北京心理危机研究与干预中心 010-82951332 (24h)
+📞 全国心理援助热线 **12356** (国家卫健委, 24h, 精神科医生接听)
+📞 北京心理危机研究与干预中心 010-82951332 (24h, 备用)
+📞 紧急情况请拨 110 / 120
 
 我会一直在这里. 你想继续说, 或者先停一下, 都可以.`;
     await db.collection("messages").add({
@@ -502,12 +608,32 @@ exports.main = async (event, context) => {
     // 如果拉历史失败, 不影响发送
   }
 
+  // 3.5 知识库 RAG 检索 (v6.2)
+  let systemPromptWithKB = roleConfig.system;
+  let kbHits = [];
+  try {
+    const kbDocs = loadKnowledgeBase();
+    // 用用户最近的消息 + 历史最后一条检索
+    const searchQuery = text + " " + (history.length > 0 ? history[history.length - 1].content : "");
+    kbHits = searchKB(searchQuery, kbDocs, 2);
+    if (kbHits.length > 0) {
+      const kbContext = buildKBContext(kbHits);
+      systemPromptWithKB = roleConfig.system + kbContext;
+      console.log(`[KB] injected ${kbHits.length} docs: ${kbHits.map(d => d.title).join(", ")}`);
+    } else {
+      console.log("[KB] no relevant docs");
+    }
+  } catch (e) {
+    console.error("[KB] RAG fail:", e.message);
+    // KB 失败不影响主流程
+  }
+
   // 4. 调 AI (v6.1 加 Self-Critique 守门员, GUARD_ENABLED=false 可关)
   let reply;
   let aiSuccess = false;
   let guardApplied = false;
   try {
-    reply = await callLLMWithGuard(roleConfig.system, history);
+    reply = await callLLMWithGuard(systemPromptWithKB, history);
     aiSuccess = true;
     guardApplied = reply && reply.__guarded === true;
     if (guardApplied) reply = reply.content;
@@ -542,5 +668,6 @@ exports.main = async (event, context) => {
     crisis: false,
     role_used: roleKey,
     ai_success: aiSuccess,
+    kb_hits: kbHits.map(d => ({ title: d.title, category: d.category })), // 前端可显示 "参考: 失眠是什么"
   };
 };
