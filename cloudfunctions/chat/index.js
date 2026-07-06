@@ -306,6 +306,72 @@ async function callLLM(system, history) {
   }
 }
 
+// ========================================================================
+// v6.1 Self-Critique 守门员 (防幻觉 P0, 1 天零成本, ↓ 30% 幻觉)
+// 依据: docs/HALLUCINATION_MITIGATION.md §四 P0 代码模板
+// 启用: 默认开, 设 env GUARD_ENABLED=false 可关
+// ========================================================================
+
+async function callLLMWithGuard(system, history) {
+  const guardEnabled = (process.env.GUARD_ENABLED || "true").toLowerCase() !== "false";
+  if (!guardEnabled) {
+    console.log("[GUARD] skipped (GUARD_ENABLED=false)");
+    const content = await callLLM(system, history);
+    return { content, __guarded: false };
+  }
+
+  // 第 1 次: 正常生成
+  const t0 = Date.now();
+  const content = await callLLM(system, history);
+  const t1 = Date.now();
+  console.log(`[GUARD] round 1: ${t1 - t0}ms, len=${content ? content.length : 0}`);
+
+  // 短回复或兜底默认话术, 不查 (节省延迟 + 避免误改)
+  if (!content || content.length < 80) {
+    return { content: content || "", __guarded: false, reason: "too_short" };
+  }
+
+  // 第 2 次: 自查 (同 provider/同 model)
+  // 注意: 只查敏感点, 不重写整个回答 (降低 latency + cost)
+  const guardPrompt = `你是审查员. 检查以下 AI 心理咨询回复:
+
+"""
+${content}
+"""
+
+检查 4 点 (按问题严重度递减):
+1. 冒充真人? (说"我是真人咨询师" / "我曾经历过" / 隐瞒 AI 身份) → 改"我是 AI 助手"
+2. 医疗/诊断建议? (开药 / 诊断抑郁症 / 替代专业治疗) → 加"建议咨询专业医生"
+3. 编造概念? (捏造心理学流派/疗法/统计数据) → 删除该句
+4. 评判用户? (说"你不应该..." / "你应该..." 命令句) → 改成疑问句
+
+输出规则:
+- 原文照搬, 只改不对的
+- 若全部没问题, 原文输出, **不要加任何解释/前言/客套**
+- 若有问题, 输出修改后的版本
+- 严格保留段落结构, 不要缩短/扩写`;
+
+  let guarded;
+  try {
+    guarded = await callLLM(guardPrompt, []);
+  } catch (e) {
+    // 审查失败, fallback 用原文 (不阻断)
+    console.log(`[GUARD] round 2 fail: ${e.message}, fallback to original`);
+    return { content, __guarded: false, guard_error: e.message };
+  }
+
+  const t2 = Date.now();
+  console.log(`[GUARD] round 2: ${t2 - t1}ms, len=${guarded ? guarded.length : 0}`);
+
+  // 简化验证: 若修改版明显短/长太多, 仍用原文 (避免审查模型破坏)
+  if (!guarded || Math.abs(guarded.length - content.length) / content.length > 0.5) {
+    console.log(`[GUARD] size diff > 50%, fallback to original`);
+    return { content, __guarded: false, reason: "size_diff" };
+  }
+
+  return { content: guarded, __guarded: true };
+}
+
 function safeStringify(obj) {
   try { return JSON.stringify(obj); } catch { return String(obj); }
 }
@@ -436,12 +502,15 @@ exports.main = async (event, context) => {
     // 如果拉历史失败, 不影响发送
   }
 
-  // 4. 调 AI
+  // 4. 调 AI (v6.1 加 Self-Critique 守门员, GUARD_ENABLED=false 可关)
   let reply;
   let aiSuccess = false;
+  let guardApplied = false;
   try {
-    reply = await callLLM(roleConfig.system, history);
+    reply = await callLLMWithGuard(roleConfig.system, history);
     aiSuccess = true;
+    guardApplied = reply && reply.__guarded === true;
+    if (guardApplied) reply = reply.content;
   } catch (e) {
     console.error("[chat] LLM call fail:", e.message, e.stack);
     reply = null;

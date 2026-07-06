@@ -1,7 +1,7 @@
 {
   "name": "chat",
-  "version": "5.3.0",
-  "description": "AI 倾诉对话 v5.3 - 用 @cloudbase/node-sdk 的 app.ai().createModel('hunyuan').doGenerate({messages}) 调腾讯云开发 AI (混元 hy3-preview)",
+  "version": "6.1.0",
+  "description": "AI 倾诉对话 v6.1 - v6.0.1 双 provider (cloudbase/amax) + v6.1 P0 Self-Critique 守门员 (防幻觉, GUARD_ENABLED=false 可关)",
   "main": "index.js",
   "dependencies": {
     "wx-server-sdk": "^4.0.2",
