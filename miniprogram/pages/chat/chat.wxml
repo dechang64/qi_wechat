@@ -1,4 +1,4 @@
-<!-- pages/chat/chat.wxml -->
+<!-- pages/chat/chat.wxml — v0.3.0 反馈 P0-1: 加隐私告知 (视频 1) -->
 <view class="container">
 
   <view class="title-h1">💬 倾诉</view>
@@ -6,23 +6,35 @@
     你可以和我聊聊, 我会倾听, 不评判, 不标签.
   </view>
 
-  <!-- 角色选择 -->
-  <scroll-view class="role-row" scroll-x="true" enable-flex="true">
-    <view
-      wx:for="{{roles}}"
-      wx:key="key"
-      class="role-chip {{currentRole === item.key ? 'role-active' : ''}}"
-      data-role="{{item.key}}"
-      bindtap="switchRole"
-    >
-      <text class="role-icon">{{item.icon}}</text>
-      <text class="role-name">{{item.name}}</text>
+  <!-- P0-1: 隐私告知条 (视频 1 反馈: "如果聊天内容不保存, 要明示") -->
+  <view class="privacy-banner">
+    <text class="privacy-icon">🔒</text>
+    <text class="privacy-text">您的聊天内容仅本次会话可见, 我们不会长期留存. 点击右上"清空"立即删除.</text>
+  </view>
+
+  <!-- 角色选择 — P0-3: 加滑动提示 (视频 2 反馈: "藏在这里看不到") -->
+  <view class="role-row-wrapper">
+    <scroll-view class="role-row" scroll-x="true" enable-flex="true" enhanced="true" show-scrollbar="true">
+      <view
+        wx:for="{{roles}}"
+        wx:key="key"
+        class="role-chip {{currentRole === item.key ? 'role-active' : ''}}"
+        data-role="{{item.key}}"
+        bindtap="switchRole"
+      >
+        <text class="role-icon">{{item.icon}}</text>
+        <text class="role-name">{{item.name}}</text>
+      </view>
+      <view class="role-chip role-clear" bindtap="clearHistory">
+        <text class="role-icon">🧹</text>
+        <text class="role-name">清空</text>
+      </view>
+    </scroll-view>
+    <!-- 右侧渐变 + 箭头, 提示用户可横向滑动 -->
+    <view class="role-row-hint">
+      <text class="role-row-arrow">›</text>
     </view>
-    <view class="role-chip role-clear" bindtap="clearHistory">
-      <text class="role-icon">🧹</text>
-      <text class="role-name">清空</text>
-    </view>
-  </scroll-view>
+  </view>
 
   <!-- 历史对话 -->
   <scroll-view class="messages" scroll-y="true" scroll-into-view="{{scrollTo}}" scroll-with-animation="true" enhanced="true" show-scrollbar="{{false}}">
@@ -55,5 +67,8 @@
   <view class="text-muted" style="text-align:center; margin: 16rpx 0; font-size: 22rpx;">
     v2.0 · 腾讯混元 hy3-preview + 6 角色 + 上下文
   </view>
+
+  <!-- P0-4: 全页免责声明 (视频 3 反馈) -->
+  <disclaimer />
 
 </view>

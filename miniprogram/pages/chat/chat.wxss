@@ -1,4 +1,27 @@
 /* pages/chat/chat.wxss */
+
+/* P0-1: 隐私告知条 (视频 1 反馈) */
+.privacy-banner {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  background: #fff7e6;
+  border-left: 6rpx solid #d4a574;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 16rpx;
+  font-size: 24rpx;
+  color: #6b5237;
+  line-height: 1.5;
+}
+.privacy-icon {
+  font-size: 28rpx;
+  flex-shrink: 0;
+}
+.privacy-text {
+  flex: 1;
+}
+
 .messages {
   padding: 16rpx 0;
   height: 60vh;
@@ -51,13 +74,44 @@
   51%, 100% { opacity: 0; }
 }
 
-/* 角色选择 */
+/* 角色选择 — P0-3: 滑动提示 (视频 2 反馈) */
+.role-row-wrapper {
+  position: relative;
+  margin-bottom: 16rpx;
+}
+
 .role-row {
   white-space: nowrap;
   padding: 16rpx 0;
   background: #f5f0e8;
   display: flex;
   flex-wrap: nowrap;
+}
+
+.role-row-hint {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 80rpx;
+  background: linear-gradient(to right, rgba(245, 240, 232, 0), rgba(245, 240, 232, 1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.role-row-arrow {
+  font-size: 48rpx;
+  color: #8b7355;
+  font-weight: 700;
+  line-height: 1;
+  animation: arrowHint 1.6s ease-in-out infinite;
+}
+
+@keyframes arrowHint {
+  0%, 100% { transform: translateX(0); opacity: 0.7; }
+  50% { transform: translateX(8rpx); opacity: 1; }
 }
 
 .role-chip {

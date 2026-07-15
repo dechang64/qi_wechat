@@ -13,7 +13,8 @@
     "navigationBarBackgroundColor": "#1F3A5F",
     "navigationBarTitleText": "祺臻心理",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#f5f0e8"
+    "backgroundColor": "#f5f0e8",
+    "disableScroll": true
   },
   "tabBar": {
     "color": "#8b7355",

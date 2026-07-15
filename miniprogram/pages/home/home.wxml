@@ -1,5 +1,8 @@
-<!-- pages/home/home.wxml -->
+<!-- pages/home/home.wxml — v0.3.0 反馈 P0-4: 加免责声明 -->
 <view class="container">
+
+  <!-- P0-4: 免责声明 (视频 3 反馈) -->
+  <disclaimer />
 
   <!-- Hero -->
   <view class="hero">
@@ -73,6 +76,24 @@
 
   <view class="text-muted" style="text-align:center; margin: 40rpx 0;">
     v0.1 demo · 复用 dgy-treehole v6.4
+  </view>
+
+  <!-- P0-5: 强制手机号注册遮罩 (视频 3 反馈) -->
+  <view class="phone-auth-mask" wx:if="{{showPhoneAuth}}">
+    <view class="phone-auth-modal">
+      <view class="phone-auth-icon">📱</view>
+      <view class="phone-auth-title">欢迎来到祺臻心理</view>
+      <view class="phone-auth-desc">
+        为更好地为您提供服务, 请授权手机号.<br/>
+        我们仅用于预约通知, 不会与您的聊天记录关联.
+      </view>
+      <button
+        class="phone-auth-btn"
+        open-type="getPhoneNumber"
+        bindgetphonenumber="onGetPhone"
+      >授权手机号</button>
+      <view class="phone-auth-skip" bindtap="onSkipPhone">暂不授权 (仅浏览)</view>
+    </view>
   </view>
 
 </view>

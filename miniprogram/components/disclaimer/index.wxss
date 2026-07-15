@@ -1,0 +1,22 @@
+/* components/disclaimer/index.wxss — P0-4 */
+.disclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  background: #fef6e4;
+  border-left: 6rpx solid #d4a574;
+  border-radius: 8rpx;
+  padding: 12rpx 16rpx;
+  margin: 16rpx 0;
+  font-size: 22rpx;
+  color: #6b5237;
+  line-height: 1.5;
+}
+.disclaimer-icon {
+  font-size: 24rpx;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+.disclaimer-text {
+  flex: 1;
+}

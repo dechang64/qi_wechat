@@ -1,0 +1,5 @@
+<!-- components/disclaimer/index.wxml — P0-4: 全页免责声明 (视频 3 反馈) -->
+<view class="disclaimer">
+  <text class="disclaimer-icon">⚠️</text>
+  <text class="disclaimer-text">本平台所有内容(含 AI 对话/心理测评)仅供日常情绪陪伴与参考, 不作为医学诊断或治疗依据. 如有持续困扰, 请预约线下真人咨询或拨打心理援助热线 400-161-9995.</text>
+</view>

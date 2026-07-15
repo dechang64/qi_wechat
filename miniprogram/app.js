@@ -29,6 +29,22 @@ App({
     if (cached) {
       this.globalData.user = cached;
     }
+
+    // P0-5: 强制手机号注册 (视频 3 反馈)
+    // 首次进入未授权, 标记 needsPhoneAuth
+    // 拦截在 home 页 onShow 触发弹窗
+    if (!wx.getStorageSync("phone_authorized")) {
+      this.globalData.needsPhoneAuth = true;
+    }
+  },
+
+  // P0-5: 标记用户已授权手机号
+  markPhoneAuthorized(phoneInfo) {
+    wx.setStorageSync("phone_authorized", true);
+    if (phoneInfo) {
+      wx.setStorageSync("phone_info", phoneInfo);
+    }
+    this.globalData.needsPhoneAuth = false;
   },
 
   // 全局数据 (云开发 — 不再需要 api_base)
@@ -37,6 +53,8 @@ App({
     selected_community: null,
     selected_counselor: null,
     cloud_env_id: "qi-wechat-dev-d7gxd20xreb567ce2",
+    // P0-5: 是否需要强制手机号注册
+    needsPhoneAuth: false,
   },
 
   // 云函数调用 helper (统一错误处理)

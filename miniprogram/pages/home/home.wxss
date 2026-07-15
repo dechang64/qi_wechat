@@ -1,4 +1,63 @@
 /* pages/home/home.wxss */
+
+/* P0-5: 手机号授权遮罩 (视频 3 反馈) */
+.phone-auth-mask {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32rpx;
+}
+
+.phone-auth-modal {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 48rpx 32rpx;
+  text-align: center;
+  width: 100%;
+  max-width: 600rpx;
+}
+
+.phone-auth-icon {
+  font-size: 80rpx;
+  margin-bottom: 16rpx;
+}
+
+.phone-auth-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1F3A5F;
+  margin-bottom: 16rpx;
+}
+
+.phone-auth-desc {
+  font-size: 26rpx;
+  color: #6b5237;
+  line-height: 1.6;
+  margin-bottom: 32rpx;
+}
+
+.phone-auth-btn {
+  background: #1F3A5F;
+  color: #ffffff;
+  border-radius: 999rpx;
+  padding: 24rpx 0;
+  font-size: 30rpx;
+  border: none;
+  width: 100%;
+  margin-bottom: 16rpx;
+}
+
+.phone-auth-skip {
+  font-size: 24rpx;
+  color: #8b7355;
+  text-decoration: underline;
+  padding: 16rpx 0;
+}
+
 .hero {
   padding: 60rpx 32rpx;
   text-align: center;

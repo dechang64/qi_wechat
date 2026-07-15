@@ -25,12 +25,78 @@ Page({
   _typingTimer: null,
   _activeTypingId: null,
 
+  // P0-6: AI 限时聊天 (视频 3 反馈: "他一直聊一直聊, 不能一直聊")
+  _chatDurationTimer: null,
+  _chatStartTs: 0,
+  CHAT_LIMIT_MS: 5 * 60 * 1000,  // 5 分钟
+
   onLoad() {
     this.loadHistory();
   },
 
+  onShow() {
+    // P0-6: 重新进入页面时, 如果还没开始, 重置计时
+    if (this._chatStartTs === 0) {
+      this._startChatTimer();
+    }
+  },
+
   onUnload() {
     this._stopTyping();
+    this._stopChatTimer();
+  },
+
+  _startChatTimer() {
+    this._chatStartTs = Date.now();
+    this._chatDurationTimer = setInterval(() => {
+      const elapsed = Date.now() - this._chatStartTs;
+      const remaining = this.CHAT_LIMIT_MS - elapsed;
+      if (remaining <= 0) {
+        this._stopChatTimer();
+        this._onChatTimeout();
+      } else if (remaining <= 60 * 1000) {
+        // 剩 1 分钟, 顶部 toast 提示
+        if (!this._notifiedLastMin) {
+          this._notifiedLastMin = true;
+          wx.showToast({ title: "还剩 1 分钟, 建议线下预约", icon: "none", duration: 2000 });
+        }
+      }
+    }, 5000);  // 每 5 秒检查
+  },
+
+  _stopChatTimer() {
+    if (this._chatDurationTimer) {
+      clearInterval(this._chatDurationTimer);
+      this._chatDurationTimer = null;
+    }
+  },
+
+  _onChatTimeout() {
+    // 强制中断 AI 聊天
+    this._stopTyping();
+    this.setData({ sending: false });
+
+    // P0-7: 弹线下预约引导
+    this._showBookingPrompt();
+  },
+
+  // P0-7: 弹线下预约引导 (视频 3 反馈: "写上如需详细了解, 个体差异...需要线下来再预约")
+  _showBookingPrompt() {
+    const r = wx.showModal({
+      title: "本次倾诉已结束",
+      content: "个体情况因人而异, 线上 AI 陪伴仅作日常参考. 如需针对您具体情况的深度交流, 建议预约线下 1v1 真人咨询师.",
+      confirmText: "立即预约",
+      cancelText: "继续聊一会",
+      success: (res) => {
+        if (res.confirm) {
+          wx.switchTab({ url: "/pages/booking/booking" });
+        } else {
+          // 继续聊: 重置计时 (5 分钟)
+          this._notifiedLastMin = false;
+          this._startChatTimer();
+        }
+      },
+    });
   },
 
   _stopTyping() {

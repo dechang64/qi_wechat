@@ -1,4 +1,4 @@
-// pages/home/home.js — 云开发版
+// pages/home/home.js — 云开发版 + v0.3.0 反馈 P0-5
 const app = getApp();
 
 Page({
@@ -6,6 +6,8 @@ Page({
     communities: [],
     selected_community: "",
     dailyTip: "",
+    // P0-5: 手机号授权遮罩
+    showPhoneAuth: false,
   },
 
   onLoad() {
@@ -13,6 +15,37 @@ Page({
     this.loadDailyTip();
     const last = wx.getStorageSync("selected_community");
     if (last) this.setData({ selected_community: last });
+  },
+
+  onShow() {
+    // P0-5: 检查是否需要手机号授权
+    if (!wx.getStorageSync("phone_authorized")) {
+      this.setData({ showPhoneAuth: true });
+    } else {
+      this.setData({ showPhoneAuth: false });
+    }
+  },
+
+  // P0-5: 用户授权手机号回调
+  onGetPhone(e) {
+    if (e.detail.errMsg === "getPhoneNumber:ok") {
+      // 真实场景: 把 encryptedData + iv 发到云函数解密
+      // 这里先标记本地已授权, 云函数后续接入
+      app.markPhoneAuthorized(e.detail);
+      this.setData({ showPhoneAuth: false });
+      wx.showToast({ title: "授权成功", icon: "success" });
+    } else {
+      // 用户拒绝授权
+      wx.showToast({ title: "已跳过, 部分功能受限", icon: "none" });
+      this.onSkipPhone();
+    }
+  },
+
+  // P0-5: 跳过授权 (仅浏览模式)
+  onSkipPhone() {
+    // 不标记为已授权, 保留 needsPhoneAuth
+    // 下次 onShow 还会再弹一次 (但间隔拉长)
+    this.setData({ showPhoneAuth: false });
   },
 
   async loadCommunities() {

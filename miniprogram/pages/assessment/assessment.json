@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "5 分钟测评"
+  "navigationBarTitleText": "5 分钟测评",
+  "usingComponents": {
+    "disclaimer": "/components/disclaimer/index"
+  }
 }

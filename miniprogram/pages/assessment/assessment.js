@@ -17,9 +17,11 @@ Page({
 
   async loadQuestions() {
     const res = await app.callFunction("assessment", { action: "questions" });
-    if (res.ok && res.data.questions) {
+    if (res.ok && res.data.questions && res.data.questions.length >= 8) {
       this.setData({ questions: res.data.questions });
     } else {
+      // P0-8: 5 道 -> 8 道 (视频 2 反馈: "测评五道题有点太少了, 至少八到十道题吧")
+      // PHQ-9 标准抑郁量表前 7 + 睡眠 + 危机
       this.setData({
         questions: [
           { id: "q1", text: "过去 2 周, 您是否经常感到心情低落?", options: [
@@ -28,10 +30,16 @@ Page({
             { v: 0, t: "完全没有" }, { v: 1, t: "几天" }, { v: 2, t: "一半以上" }, { v: 3, t: "几乎每天" }] },
           { id: "q3", text: "您的睡眠质量如何?", options: [
             { v: 0, t: "很好" }, { v: 1, t: "偶尔差" }, { v: 2, t: "经常差" }, { v: 3, t: "几乎每天失眠" }] },
-          { id: "q4", text: "您与家人/朋友的相处如何?", options: [
-            { v: 0, t: "正常" }, { v: 1, t: "有点疏远" }, { v: 2, t: "明显减少" }, { v: 3, t: "几乎不联系" }] },
-          { id: "q5", text: "您是否有过'不想活了'的想法?", options: [
+          { id: "q4", text: "您是否经常感到疲倦或精力不足?", options: [
+            { v: 0, t: "没有" }, { v: 1, t: "偶尔" }, { v: 2, t: "经常" }, { v: 3, t: "几乎每天" }] },
+          { id: "q5", text: "您的食欲是否有明显变化?", options: [
+            { v: 0, t: "正常" }, { v: 1, t: "轻微变化" }, { v: 2, t: "明显减少或增加" }, { v: 3, t: "严重变化" }] },
+          { id: "q6", text: "您是否经常自我否定或感到失败?", options: [
             { v: 0, t: "完全没有" }, { v: 1, t: "很少" }, { v: 2, t: "有时" }, { v: 3, t: "经常/强烈" }] },
+          { id: "q7", text: "您是否难以集中注意力?", options: [
+            { v: 0, t: "没有" }, { v: 1, t: "偶尔" }, { v: 2, t: "经常" }, { v: 3, t: "几乎每天" }] },
+          { id: "q8", text: "您与家人/朋友的相处如何?", options: [
+            { v: 0, t: "正常" }, { v: 1, t: "有点疏远" }, { v: 2, t: "明显减少" }, { v: 3, t: "几乎不联系" }] },
         ],
       });
     }
@@ -44,21 +52,24 @@ Page({
   },
 
   next() {
-    if (this.data.current === 4) {
+    // P0-8: 动态计算题目数 (从 5 改到 8)
+    const total = this.data.questions.length;
+    if (this.data.current === total - 1) {
       this.submit();
       return;
     }
     this.setData({
       current: this.data.current + 1,
-      progress: (this.data.current + 1) * 20 + 20,
+      progress: ((this.data.current + 1) / total) * 100,
     });
   },
 
   prev() {
     if (this.data.current > 0) {
+      const total = this.data.questions.length;
       this.setData({
         current: this.data.current - 1,
-        progress: (this.data.current + 1) * 20,
+        progress: ((this.data.current) / total) * 100,
       });
     }
   },

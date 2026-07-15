@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "倾诉"
+  "navigationBarTitleText": "倾诉",
+  "usingComponents": {
+    "disclaimer": "/components/disclaimer/index"
+  }
 }

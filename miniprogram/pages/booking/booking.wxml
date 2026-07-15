@@ -1,5 +1,8 @@
-<!-- pages/booking/booking.wxml -->
+<!-- pages/booking/booking.wxml — v0.3.0 反馈 P0-4: 加免责声明 -->
 <view class="container">
+
+  <!-- P0-4: 免责声明 (视频 3 反馈) -->
+  <disclaimer />
 
   <view class="title-h1">📅 预约</view>
   <view class="text-muted" style="margin-bottom: 32rpx;">

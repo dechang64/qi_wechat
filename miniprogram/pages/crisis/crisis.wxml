@@ -1,5 +1,8 @@
-<!-- pages/crisis/crisis.wxml -->
+<!-- pages/crisis/crisis.wxml — v0.3.0 反馈 P0-4: 加免责声明 -->
 <view class="container">
+
+  <!-- P0-4: 免责声明 (视频 3 反馈) -->
+  <disclaimer />
 
   <view class="crisis-hero">
     <view style="font-size:80rpx;">🚨</view>

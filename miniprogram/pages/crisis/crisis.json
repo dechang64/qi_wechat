@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "紧急 / 危机"
+  "navigationBarTitleText": "紧急 / 危机",
+  "usingComponents": {
+    "disclaimer": "/components/disclaimer/index"
+  }
 }
